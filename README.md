@@ -1,6 +1,6 @@
 # SignalX Firmware
 
-Welcome to **SignalX Firmware**, the ultimate custom firmware for enhancing the capabilities of your Flipper Zero! Built by a passionate community of hackers and tech enthusiasts, SignalX takes your Flipper Zero experience to the next level with advanced features, unique tools, and a sleek user experience.
+Welcome to **SignalX Firmware**, the ultimate custom firmware for enhancing the capabilities of your Flipper Zero, M5StickC Plus, and M5StickC Plus 2! Built by a passionate community of hackers and tech enthusiasts, SignalX takes your device experience to the next level with advanced features, unique tools, and a sleek user experience.
 
 ---
 
@@ -9,6 +9,7 @@ Welcome to **SignalX Firmware**, the ultimate custom firmware for enhancing the 
 - **Enhanced Tools:** Unlock advanced functionality for hardware hacking, RF analysis, and device emulation.
 - **Custom UI:** Sleek, user-friendly design with unique SignalX branding.
 - **Expanded Protocol Support:** Added compatibility for new protocols and devices.
+- **Comprehensive Attack Suite:** SignalX firmware includes IR attacks, Sub-GHz attacks, RFID cloning and attacks, NFC attacks, BLE attacks, Wi-Fi attacks, and more.
 - **Community-Driven Improvements:** Features inspired by and for the SignalX Discord community.
 - **Regular Updates:** Frequent updates with bug fixes, new features, and performance enhancements.
 
@@ -16,18 +17,19 @@ Welcome to **SignalX Firmware**, the ultimate custom firmware for enhancing the 
 
 ## 📦 Installation
 
-> **Important:** Before installing SignalX Firmware, ensure you back up your Flipper Zero's original firmware and data.
+> **Important:** Before installing SignalX Firmware, ensure you back up your device's original firmware and data.
 
 1. **Download the Latest Release:**
    - Visit the [Releases](https://github.com/yourusername/signalx-firmware/releases) page to get the latest SignalX firmware package.
-2. **Install qFlipper:**
-   - Download and install the [qFlipper tool](https://flipperzero.one/update) for your OS.
+2. **Install qFlipper or M5StickC Tools:**
+   - For Flipper Zero: Download and install the [qFlipper tool](https://flipperzero.one/update) for your OS.
+   - For M5StickC devices: Follow the [M5Stack firmware update guide](https://docs.m5stack.com/en/quick_start).
 3. **Flash the Firmware:**
-   - Connect your Flipper Zero to your computer.
-   - Open qFlipper, navigate to the firmware flashing section, and select the SignalX firmware file.
+   - Connect your device to your computer.
+   - Open the appropriate tool, navigate to the firmware flashing section, and select the SignalX firmware file.
    - Follow the on-screen instructions to complete the process.
 4. **Restart Your Device:**
-   - Once the flashing process is complete, restart your Flipper Zero and enjoy SignalX!
+   - Once the flashing process is complete, restart your device and enjoy SignalX!
 
 ---
 
@@ -40,7 +42,7 @@ We encourage developers to contribute to the SignalX Firmware! Here’s how to g
    git clone https://github.com/yourusername/signalx-firmware.git
    ```
 2. **Set Up Your Environment:**
-   - Follow the [Flipper Zero Firmware Development Guide](https://github.com/flipperdevices/flipperzero-firmware) to configure your build environment.
+   - Follow the [Flipper Zero Firmware Development Guide](https://github.com/flipperdevices/flipperzero-firmware) or the [M5Stack Development Guide](https://docs.m5stack.com/en/development) to configure your build environment.
 3. **Make Changes:**
    - Implement your features, fix bugs, or improve documentation.
 4. **Submit a Pull Request:**
@@ -77,5 +79,5 @@ SignalX Firmware is brought to you by the dedicated contributors of the SignalX 
 ## ⭐ Support Us
 
 If you love SignalX Firmware, please consider giving this repository a star! 🌟
-
+![SignalX NETWORK](https://github.com/user-attachments/assets/51e5730e-6170-4712-932a-783fe4059e49)
 
