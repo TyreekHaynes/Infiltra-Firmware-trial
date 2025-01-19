@@ -60,7 +60,7 @@ We welcome contributions from the community! Whether it’s code, documentation,
 
 Become part of the SignalX community on Discord! Share ideas, get support, and collaborate with like-minded enthusiasts.
 
-- **Discord:** [Join SignalX](https://discord.gg/yourserverlink)
+- **Discord:** [Join SignalX](https://discord.gg/FDZtZRBm2F)
 
 ---
 
