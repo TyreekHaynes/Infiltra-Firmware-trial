@@ -1,0 +1,277 @@
+#include <M5StickCPlus2.h>
+#include <SPIFFS.h>
+#include <algorithm>
+
+using std::min;
+
+// Forward declarations
+void displayMenuItem();
+void displaySubMenu();
+void drawHeader();
+void drawNavigationDots();
+void handleFileSystem();
+int getMaxSubMenuItems();
+
+// Constants
+const int MAX_FILE_SIZE = 5000;
+const char* SIGNALXNETWORK_DIR = "/SXN";
+
+// Main menu items
+const char* menuItems[] = {
+    "Bluetooth", "WiFi", "RFID", "RF", "IR", "Files", "Config", "Settings"
+};
+
+const char* bluetoothMenu[] = {
+    "Ios Spam", "Android Spam", "Google Spam", "Windows Spam", "Samsung Spam", "Ble Controller"
+};
+
+const char* wifiMenu[] = {
+    "Scan Networks", "Evil Portal", "Raw Sniffer", "Packet Sniffer", "Deauth WiFi"
+};
+
+const char* rfidMenu[] = {
+    "Copy RFID", "Scan Tags", "Write Tags", "Erase Tag", "Load File"
+};
+
+const char* rfMenu[] = {
+    "RF Vizulizer", "Jammer", "Custom FQ", "Custom SubGhz"
+};
+
+const char* filesMenu[] = {
+    "Integrated", "Web Send Files"
+};
+
+const char* irMenu[] = {
+    "IR Remote", "IR Replay", "Custom IR"
+};
+
+const char* configMenu[] = {
+    "IR Mods", "Rf Mods", "RFID Mods"
+};
+
+const char* settingsMenu[] = {
+    "UI Color", "Time", "Creds"
+};
+
+// Menu sizes
+const int numMenuItems = sizeof(menuItems) / sizeof(menuItems[0]);
+const int numBluetoothItems = sizeof(bluetoothMenu) / sizeof(bluetoothMenu[0]);
+const int numWifiItems = sizeof(wifiMenu) / sizeof(wifiMenu[0]);
+const int numRfidItems = sizeof(rfidMenu) / sizeof(rfidMenu[0]);
+const int numRfItems = sizeof(rfMenu) / sizeof(rfMenu[0]);
+const int numFilesItems = sizeof(filesMenu) / sizeof(filesMenu[0]);
+const int numIrItems = sizeof(irMenu) / sizeof(irMenu[0]);
+const int numConfigItems = sizeof(configMenu) / sizeof(configMenu[0]);
+const int numSettingsItems = sizeof(settingsMenu) / sizeof(settingsMenu[0]);
+const int itemSpacing = 25;
+
+// State variables
+int currentMenuItem = 0;
+int currentSubMenuItem = 0;
+bool inSubmenu = false;
+bool inFileMenu = true;
+
+void setup() {
+    M5.begin();
+    
+    if(!SPIFFS.begin(true)) {
+        M5.Lcd.println("SPIFFS Mount Failed");
+        return;
+    }
+    
+    M5.Lcd.setRotation(3);
+    M5.Lcd.setTextSize(3);
+    M5.Lcd.setTextColor(WHITE);
+    displayMenuItem();
+}
+
+void loop() {
+    M5.update();
+    
+    if (M5.BtnPWR.wasPressed()) {
+        if (inSubmenu) {
+            currentSubMenuItem = (currentSubMenuItem - 1 + getMaxSubMenuItems() + 1) % (getMaxSubMenuItems() + 1);
+            displaySubMenu();
+        } else {
+            currentMenuItem = (currentMenuItem - 1 + numMenuItems) % numMenuItems;
+            displayMenuItem();
+        }
+        return;
+    }
+
+    if (!inSubmenu) {
+        if (M5.BtnB.wasPressed()) {
+            currentMenuItem = (currentMenuItem + 1) % numMenuItems;
+            displayMenuItem();
+        }
+        if (M5.BtnA.wasPressed()) {
+            inSubmenu = true;
+            currentSubMenuItem = 0;
+            displaySubMenu();
+        }
+    } else {
+        if (M5.BtnB.wasPressed()) {
+            int maxItems = getMaxSubMenuItems() + 1;
+            currentSubMenuItem = (currentSubMenuItem + 1) % maxItems;
+            displaySubMenu();
+        }
+        if (M5.BtnA.wasPressed()) {
+            if (currentSubMenuItem == getMaxSubMenuItems()) {
+                inSubmenu = false;
+                displayMenuItem();
+            } else if (currentMenuItem == 5 && currentSubMenuItem == 0) {
+                handleFileSystem();
+                displaySubMenu();
+            }
+        }
+    }
+}
+
+void displayMenuItem() {
+    M5.Lcd.fillScreen(BLACK);
+    drawHeader();
+    
+    int prevItem = (currentMenuItem - 1 + numMenuItems) % numMenuItems;
+    int nextItem = (currentMenuItem + 1) % numMenuItems;
+    
+    M5.Lcd.setTextSize(1);
+    M5.Lcd.setTextColor(0x4208);
+    M5.Lcd.drawString(menuItems[prevItem], 5, M5.Lcd.height()/2 - 30);
+    M5.Lcd.drawString(menuItems[nextItem], M5.Lcd.width() - M5.Lcd.textWidth(menuItems[nextItem]) - 5, M5.Lcd.height()/2 - 30);
+    
+    M5.Lcd.setTextSize(3);
+    M5.Lcd.setTextColor(RED);
+    M5.Lcd.drawString("<", 5, M5.Lcd.height()/2 - 12);
+    M5.Lcd.drawString(">", M5.Lcd.width() - 20, M5.Lcd.height()/2 - 12);
+    
+    M5.Lcd.setTextColor(WHITE);
+    int textWidth = M5.Lcd.textWidth(menuItems[currentMenuItem]);
+    int textHeight = M5.Lcd.fontHeight();
+    int centerX = (M5.Lcd.width() - textWidth) / 2;
+    int centerY = (M5.Lcd.height() - textHeight) / 2;
+    
+    M5.Lcd.setCursor(centerX, centerY);
+    M5.Lcd.print(menuItems[currentMenuItem]);
+    
+    M5.Lcd.drawLine(centerX, centerY + textHeight + 2, centerX + textWidth, centerY + textHeight + 2, RED);
+    
+    drawNavigationDots();
+}
+
+void displaySubMenu() {
+    M5.Lcd.fillScreen(BLACK);
+    drawHeader();
+    
+    const char** currentSubMenu;
+    int maxItems = getMaxSubMenuItems();
+    
+    switch(currentMenuItem) {
+        case 0: currentSubMenu = bluetoothMenu; break;
+        case 1: currentSubMenu = wifiMenu; break;
+        case 2: currentSubMenu = rfidMenu; break;
+        case 3: currentSubMenu = rfMenu; break;
+        case 4: currentSubMenu = irMenu; break;
+        case 5: currentSubMenu = filesMenu; break;
+        case 6: currentSubMenu = configMenu; break;
+        case 7: currentSubMenu = settingsMenu; break;
+        default: return;
+    }
+    
+    int maxVisibleItems = (M5.Lcd.height() - 25) / itemSpacing;
+    int scrollOffset = max(0, currentSubMenuItem - maxVisibleItems + 1);
+    int endIndex = min(scrollOffset + maxVisibleItems, maxItems + 1);
+    
+    for (int i = scrollOffset; i < endIndex; i++) {
+        int yPos = 25 + ((i - scrollOffset) * itemSpacing);
+        M5.Lcd.setTextSize(2);
+        
+        const char* menuText = (i < maxItems) ? currentSubMenu[i] : "<Back";
+        int textWidth = M5.Lcd.textWidth(menuText);
+        int x = (M5.Lcd.width() - textWidth) / 2;
+        
+        if (i == currentSubMenuItem) {
+            M5.Lcd.fillRoundRect(x - 5, yPos - 2, textWidth + 10, 20, 8, WHITE);
+            M5.Lcd.setTextColor(BLACK);
+        } else {
+            M5.Lcd.fillRoundRect(x - 5, yPos - 2, textWidth + 10, 20, 8, 0x4208);
+            M5.Lcd.setTextColor(WHITE);
+        }
+        M5.Lcd.drawString(menuText, x, yPos);
+    }
+    
+    M5.Lcd.setTextSize(2);
+    M5.Lcd.setTextColor(RED);
+    M5.Lcd.drawString("^", M5.Lcd.width() - 15, 30);
+    M5.Lcd.drawString("v", M5.Lcd.width() - 15, M5.Lcd.height() - 30);
+}
+
+void handleFileSystem() {
+    M5.Lcd.fillScreen(BLACK);
+    drawHeader();
+    
+    M5.Lcd.setTextSize(1);
+    M5.Lcd.setTextColor(WHITE);
+    M5.Lcd.drawString("Storage Info", 5, 35);
+    M5.Lcd.drawLine(5, 45, 120, 45, 0x4208);
+    
+    size_t totalBytes = SPIFFS.totalBytes();
+    size_t usedBytes = SPIFFS.usedBytes();
+    
+    M5.Lcd.drawString("Total:", 5, 55);
+    M5.Lcd.drawString(String(totalBytes/1024) + "KB", 5, 65);
+    M5.Lcd.drawString("Used:", 5, 85);
+    M5.Lcd.drawString(String(usedBytes/1024) + "KB", 5, 95);
+    M5.Lcd.drawString("Free:", 5, 115);
+    M5.Lcd.drawString(String((totalBytes-usedBytes)/1024) + "KB", 5, 125);
+    
+    bool exitFileSystem = false;
+    while(!exitFileSystem) {
+        M5.update();
+        if(M5.BtnPWR.wasPressed()) {
+            exitFileSystem = true;
+        }
+        delay(10);
+    }
+}
+
+int getMaxSubMenuItems() {
+    switch(currentMenuItem) {
+        case 0: return numBluetoothItems;
+        case 1: return numWifiItems;
+        case 2: return numRfidItems;
+        case 3: return numRfItems;
+        case 4: return numIrItems;
+        case 5: return numFilesItems;
+        case 6: return numConfigItems;
+        case 7: return numSettingsItems;
+        default: return 0;
+    }
+}
+
+void drawHeader() {
+    M5.Lcd.setTextSize(1);
+    M5.Lcd.setTextColor(WHITE);
+    int titleWidth = M5.Lcd.textWidth("SignalXNetwork V1.0");
+    M5.Lcd.drawString("SignalXNetwork V1.0", (M5.Lcd.width() - titleWidth) / 2, 5);
+    
+    int batPercentage = M5.Power.getBatteryLevel();
+    M5.Lcd.drawString(String(batPercentage) + "%", M5.Lcd.width() - 35, 5);
+    
+    M5.Lcd.drawLine(0, 20, M5.Lcd.width(), 20, WHITE);
+}
+
+void drawNavigationDots() {
+    int dotSpacing = 10;
+    int dotRadius = 3;
+    int totalWidth = (numMenuItems * (dotRadius * 2 + dotSpacing)) - dotSpacing;
+    int startX = (M5.Lcd.width() - totalWidth) / 2;
+    int y = M5.Lcd.height() - 15;
+
+    for (int i = 0; i < numMenuItems; i++) {
+        if (i == currentMenuItem) {
+            M5.Lcd.fillCircle(startX + i * (dotRadius * 2 + dotSpacing), y, dotRadius, WHITE);
+        } else {
+            M5.Lcd.drawCircle(startX + i * (dotRadius * 2 + dotSpacing), y, dotRadius, WHITE);
+        }
+    }
+}
