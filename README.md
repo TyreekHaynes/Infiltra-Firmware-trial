@@ -1,113 +1,113 @@
-# SignalX Firmware
+# **Signal X Firmware**
 
-Welcome to **SignalX Firmware**, the ultimate custom firmware for enhancing the capabilities of your Flipper Zero, M5StickC Plus, and M5StickC Plus 2! Built by a passionate community of hackers and tech enthusiasts, SignalX takes your device experience to the next level with advanced features, unique tools, and a sleek user experience.
+Welcome to **Signal X Firmware**, the **ultimate** custom firmware designed to **expand the capabilities** of your **Flipper Zero, M5StickC Plus, M5StickC Plus 2, Cardputer, LilyGO T-Embed CC1101, ESP8266 Deauther, ESP32, and more**! 
 
----
-
-## 🚀 Features
-
-- **Enhanced Tools:** Unlock advanced functionality for hardware hacking, RF analysis, and device emulation.
-- **Custom UI:** Sleek, user-friendly design with unique SignalX branding.
-- **Expanded Protocol Support:** Added compatibility for new protocols and devices.
-- **Comprehensive Attack Suite:** SignalX firmware includes the following features:
-
-### 🔥 Sub-GHz
-- **Spectrum Analyzer:** Visualize the RF spectrum to identify active frequencies.
-- **Signal Reading and Emulation:** Capture and emulate Sub-GHz signals for remotes, barriers, and more.
-- **Signal Saving:** Store and organize Sub-GHz signals for future use.
-
-### 📶 Wi-Fi
-- **Wi-Fi Deauthentication:** Disconnect devices from networks by sending deauth packets.
-- **Wi-Fi Beacon Spam:** Flood Wi-Fi networks with fake access points with customizable names.
-- **Evil Portal:** Set up a fake Wi-Fi login portal to gather credentials or perform red-team simulations.
-- **Network Scanning:** Detect and analyze nearby Wi-Fi networks for security testing.
-
-### 🌀 Bluetooth Low Energy (BLE)
-- **BLE Settings Spam:** Overwhelm BLE devices with repeated configuration requests.
-- **BLE Beacons:** Broadcast custom BLE beacons for testing and experimentation.
-- **BLE iOS Spam:** Specific payloads targeting iOS BLE devices.
-- **BLE Windows Spam:** Send spam signals to disrupt BLE devices running on Windows.
-- **BLE Android Spam:** Send spam signals to disrupt BLE devices running on Android.
-
-### 📛 RFID
-- **RFID Cloning:** Duplicate RFID tags for access control testing.
-- **RFID Scanning:** Read and analyze RFID tags.
-- **RFID Saving:** Store multiple RFID profiles for easy access.
-- **RFID Emulation:** Emulate scanned or saved RFID tags for various applications.
-
-### 📋 NFC
-- **NFC Cloning:** Duplicate NFC cards for testing purposes.
-- **NFC Scanning:** Analyze and capture data from NFC cards.
-- **NFC Saving:** Organize and store NFC profiles.
-- **NFC Emulation:** Emulate NFC cards for red-team operations or experiments.
+Built by a dedicated community of **hackers, developers, and security enthusiasts**, Signal X delivers a **powerful set of tools** for wireless testing, hardware hacking, and advanced emulation.
 
 ---
 
-## 📦 Installation
+## **🚀 Features**
+### **🔥 Sub-GHz (CC1101 Support)**
+- **Signal Reading & Emulation** – Capture and replay remote signals.
+- **Spectrum Analyzer** – Scan and visualize active RF frequencies.
+- **Signal Jamming** – Disrupt weak Sub-GHz signals.
+- **Signal Saving & Organization** – Store and manage Sub-GHz transmissions.
+- **Full Compatibility** – Works with **Flipper Zero, LilyGO T-Embed CC1101, ESP32, and M5 devices**.
 
-> **Important:** Before installing SignalX Firmware, ensure you back up your device's original firmware and data.
+### **📶 Wi-Fi Attacks & Network Testing**
+- **Wi-Fi Deauthentication** – Disconnect devices from networks.
+- **Beacon Spam** – Create fake access points with customized SSIDs.
+- **Evil Portal** – Set up phishing Wi-Fi login pages.
+- **Packet Sniffing & Monitoring** – Analyze network activity.
+- **ESP8266 & ESP32 Deauther** – Optimized for **ESP8266 Deauther firmware**.
 
-1. **Download the Latest Release:**
-   - Visit the [Releases](https://github.com/lilbricky101/Signal-X-Firmware/releases) page to get the latest SignalX firmware package.
-2. **Install qFlipper or M5StickC Tools:**
-   - For Flipper Zero: Download and install the [qFlipper tool](https://flipperzero.one/update) for your OS.
-   - For M5StickC devices: Follow the [M5Stack firmware update guide](https://docs.m5stack.com/en/quick_start).
-3. **Flash the Firmware:**
-   - Connect your device to your computer.
-   - Open the appropriate tool, navigate to the firmware flashing section, and select the SignalX firmware file.
-   - Follow the on-screen instructions to complete the process.
-4. **Restart Your Device:**
-   - Once the flashing process is complete, restart your device and enjoy SignalX!
+### **🌀 Bluetooth (BLE) Exploits & Spam**
+- **BLE Device Spoofing** – Emulate popular BLE devices.
+- **BLE Spam (iOS, Android, Windows)** – Send disruptive BLE signals.
+- **BLE Beacons & Advertising** – Broadcast custom BLE payloads.
+- **BLE Packet Manipulation** – Modify and analyze BLE traffic.
 
----
+### **📛 RFID & NFC Attacks**
+- **RFID Cloning & Emulation** – Copy access cards & badges.
+- **RFID Scanning & Saving** – Store multiple RFID tag profiles.
+- **NFC Card Emulation** – Clone & replay NFC credentials.
+- **Flipper Zero RFID Expansion** – Supports **high-frequency and low-frequency tags**.
 
-## 🛠️ Development
-
-We encourage developers to contribute to the SignalX Firmware! Here’s how to get started:
-
-1. **Clone the Repository:**
-   ```bash
-   git clone https://github.com/lilbricky101/Signal-X-Firmware.git
-   ```
-2. **Set Up Your Environment:**
-   - Follow the [Flipper Zero Firmware Development Guide](https://github.com/flipperdevices/flipperzero-firmware) or the [M5Stack Development Guide](https://docs.m5stack.com/en/development) to configure your build environment.
-3. **Make Changes:**
-   - Implement your features, fix bugs, or improve documentation.
-4. **Submit a Pull Request:**
-   - Push your changes to a branch and open a pull request for review.
-
----
-
-## 🤝 Contributing
-
-We welcome contributions from the community! Whether it’s code, documentation, or testing, your help is appreciated. Check out our [Contribution Guidelines](CONTRIBUTING.md) to get started.
+### **📡 Infrared (IR) Remotes & Attacks (Flipper-IRDB Integration)**
+- **IR Sending & Learning** – Capture & replay remote control signals.
+- **Preloaded IRDB Database** – Access thousands of IR remotes.
+- **TV-B-Gone Mode** – Turn off TVs in public places.
+- **Custom IR Replay** – Play back stored IR signals.
 
 ---
 
-## 🌐 Join the Community
+## **📦 Installation Guide**
+### **⚠️ Important: Backup Your Device Before Flashing!**
 
-Become part of the SignalX community on Discord! Share ideas, get support, and collaborate with like-minded enthusiasts.
+### **1️⃣ Download the Latest Release**
+- Visit our **[GitHub Releases](https://github.com/lilbricky101/Signal-X-Firmware/releases)** page.
+- Download the latest **Signal X Firmware** package for your device.
 
-- **Discord:** [Join SignalX](https://discord.gg/FDZtZRBm2F)
+### **2️⃣ Flash the Firmware**
+**Flipper Zero:**
+- Use **qFlipper** to install Signal X firmware.
+- Open **qFlipper**, navigate to **Firmware Update**, and select the downloaded **.dfu** file.
+- Click **Flash** and wait for the process to complete.
+
+**M5StickC, Cardputer, LilyGO T-Embed:**
+- Install **M5Burner** or **ESPTool**.
+- Flash the `.bin` file using the correct memory offsets.
+- Restart your device.
+
+**ESP8266 / ESP32:**
+- Install **ESPFlasher** or use PlatformIO to build and upload.
+- Run the flashing command in terminal:
+  ```sh
+  esptool.py --chip esp8266 --port COMX write_flash 0x00000 firmware.bin
+  ```
 
 ---
 
-## 📜 License
+## **🛠 Development & Contributions**
+We encourage developers to contribute to **Signal X Firmware**! 
 
-This project is licensed under the [MIT License](LICENSE). Feel free to use, modify, and distribute it as per the license terms.
+### **Get Started**
+1️⃣ **Clone the Repository:**
+```sh
+git clone https://github.com/lilbricky101/Signal-X-Firmware.git
+```
+2️⃣ **Set Up Your Environment:**
+- Follow the **Flipper Zero, M5Stack, or ESP32** firmware development guides.
+
+3️⃣ **Make Changes & Submit a Pull Request**
+- Implement new features, fix bugs, or improve documentation.
+- Open a pull request on GitHub for review.
 
 ---
 
-## 🧑‍💻 Credits
+## **🤝 Community & Support**
+Join our **Signal X Network** for the latest updates, discussions, and support!
 
-SignalX Firmware is brought to you by the dedicated contributors of the SignalX community. Special thanks to everyone who has helped make this project a success!
+🔹 **Discord:** [Join Signal X Network](https://discord.gg/r7QzDmsbyd)
+🔹 **GitHub Issues:** Report bugs and request features.
+🔹 **Wiki & Documentation:** Get detailed guides on usage and development.
 
 ---
 
-## ⭐ Support Us
+## **📜 License**
+**Signal X Firmware** is open-source under the **MIT License**. Feel free to use, modify, and distribute it!
 
-If you love SignalX Firmware, please consider giving this repository a star! 🌟
+---
 
+## **🧑‍💻 Credits & Acknowledgments**
+Signal X Firmware is developed by the **Signal X Community** – a passionate group of developers, hardware hackers, and researchers. 
 
-![SignalX NETWORK](https://github.com/user-attachments/assets/51e5730e-6170-4712-932a-783fe4059e49)
+Special thanks to **Flipper Zero Devs, M5Stack, ESP8266 Deauther Team, and Flipper-IRDB contributors** for their open-source tools that make this project possible.
+
+---
+
+⭐ **Support Us**
+If you love **Signal X Firmware**, please consider **starring our GitHub repo** to support further development!
+
+🚀 **[Star Signal X on GitHub](https://github.com/lilbricky101/Signal-X-Firmware)** 🚀
 
