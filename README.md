@@ -111,3 +111,4 @@ If you love **Signal X Firmware**, please consider **starring our GitHub repo** 
 
 🚀 **[Star Signal X on GitHub](https://github.com/lilbricky101/Signal-X-Firmware)** 🚀
 
+![2](https://github.com/user-attachments/assets/b4c4701f-a1a7-41e7-a64a-662ac217008f)
