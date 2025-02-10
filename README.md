@@ -33,9 +33,9 @@ Built by a dedicated community of **hackers, developers, and security enthusiast
 - **NFC Card Emulation** – Clone & replay NFC credentials.
 - **Flipper Zero RFID Expansion** – Supports **high-frequency and low-frequency tags**.
 
-### **📡 Infrared (IR) Remotes & Attacks (Flipper-IRDB Integration)**
+### **📡 Infrared (IR) Remotes & Attacks**
 - **IR Sending & Learning** – Capture & replay remote control signals.
-- **Preloaded IRDB Database** – Access thousands of IR remotes.
+- **Preloaded Database** – Access thousands of IR remotes.
 - **TV-B-Gone Mode** – Turn off TVs in public places.
 - **Custom IR Replay** – Play back stored IR signals.
 
