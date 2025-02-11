@@ -1,116 +1,37 @@
 #include <M5StickCPlus2.h>
 #include <SPIFFS.h>
+#include <IRremote.h>
 #include <algorithm>
-#include <IRremoteESP8266.h>
-#include <IRsend.h>
 
 using std::min;
-using std::max;
 
-IRsend irsend(19);
+struct IRCodes {
+    unsigned long powerOn[5];
+    unsigned long powerOff[5];
+};
 
+void handlePowerButton();
+void handleActionOverlay();
+void handleBrandMenu();
+void handleMainMenu();
+void handleSubMenu();
 void displayMenuItem();
 void displaySubMenu();
 void drawHeader();
 void drawNavigationDots();
-void handleFileSystem();
-int getMaxSubMenuItems();
 void displayActionOverlay();
-void displayCommandMenu();
-int getMaxCommands();
+void spamIRCodes(int deviceType, int brandIndex);
+void showSpamStatus();
+void sendAllCodes(const IRCodes& codes, int currentCount, int totalCount, int delayMs);
+void showCompletionMessage();
+int getMaxSubMenuItems();
+void handleSubMenuSelection();
+
+const int IR_SEND_PIN = 19;
 
 const int MAX_FILE_SIZE = 5000;
 const char* SIGNALXNETWORK_DIR = "/SXN";
-
-const uint32_t SAMSUNG_CODES[] = {
-    0xE0E040BF,  // Power
-    0xE0E0807F,  // Source
-    0xE0E0E01F,  // Vol+
-    0xE0E0D02F,  // Vol-
-    0xE0E048B7,  // Ch+
-    0xE0E008F7,  // Ch-
-    0xE0E058A7,  // Menu
-    0xE0E016E9,  // Enter
-    0xE0E006F9,  // Up
-    0xE0E08679,  // Down
-    0xE0E0F00F,  // Netflix
-    0xE0E09E61   // Home
-};
-
-const uint32_t LG_CODES[] = {
-    0x20DF10EF,  // Power
-    0x20DFD02F,  // Source
-    0x20DF40BF,  // Vol+
-    0x20DFC03F,  // Vol-
-    0x20DF00FF,  // Ch+
-    0x20DF807F,  // Ch-
-    0x20DFA25D,  // Menu
-    0x20DF22DD,  // Enter
-    0x20DF02FD,  // Up
-    0x20DF827D,  // Down
-    0x20DF8C73,  // Netflix
-    0x20DFC23D   // Home
-};
-
-const uint32_t SONY_CODES[] = {
-    0xA90,       // Power
-    0xA50,       // Source
-    0x490,       // Vol+
-    0xC90,       // Vol-
-    0x090,       // Ch+
-    0x890,       // Ch-
-    0x070,       // Menu
-    0xA70,       // Enter
-    0x2F0,       // Up
-    0xAF0,       // Down
-    0x1F0,       // Netflix
-    0x970        // Home
-};
-
-const uint32_t HISENSE_CODES[] = {
-    0xF20DFF00,  // Power
-    0xF20D12ED,  // Source
-    0xF20DEF10,  // Vol+
-    0xF20DCF30,  // Vol-
-    0xF20DFF00,  // Ch+
-    0xF20DFE01,  // Ch-
-    0xF20D6B94,  // Menu
-    0xF20D13EC,  // Enter
-    0xF20D01FE,  // Up
-    0xF20D9166,  // Down
-    0xF20D8877,  // Netflix
-    0xF20D48B7   // Home
-};
-
-const uint32_t PHILIPS_CODES[] = {
-    0xC00,       // Power
-    0xC30,       // Source
-    0xC10,       // Vol+
-    0xC11,       // Vol-
-    0xC20,       // Ch+
-    0xC21,       // Ch-
-    0xC54,       // Menu
-    0xC5C,       // Enter
-    0xC58,       // Up
-    0xC59,       // Down
-    0xC7B,       // Netflix
-    0xC7C        // Home
-};
-
-const uint32_t PANASONIC_CODES[] = {
-    0x100BCBD,   // Power
-    0x100010E,   // Source
-    0x1000405,   // Vol+
-    0x1000C05,   // Vol-
-    0x1002C2D,   // Ch+
-    0x1000A0B,   // Ch-
-    0x1004C4D,   // Menu
-    0x1001A1B,   // Enter
-    0x1004849,   // Up
-    0x1004C4D,   // Down
-    0x1007B7A,   // Netflix
-    0x1007C7D    // Home
-};
+const int itemSpacing = 25;
 
 const char* menuItems[] = {
     "Bluetooth", "WiFi", "RFID", "RF", "IR", "Files", "Config", "Settings"
@@ -173,27 +94,100 @@ const char* touchDisplayBrands[] = {
 };
 
 const char* brandActions[] = {
-    "Spam All", "Choose Cmd"
+    "Spam All"
 };
 
-const char* projectorCommands[] = {
-    "Power", "Source", "Vol+", "Vol-", "Freeze", "Blank", "Menu", "Enter", "Up", "Down"
+const IRCodes TV_CODES[] = {
+    // Samsung
+    {{0xE0E040BF, 0xE0E0E01F, 0xE0E0D02F, 0xE0E019E6, 0xE0E0F00F},
+     {0xE0E019E6, 0xE0E0D827, 0xE0E0C837, 0xE0E09966, 0xE0E0B04F}},
+    // LG
+    {{0x20DF10EF, 0x20DF23DC, 0x20DFA956, 0x20DF8877, 0x20DF0CF3},
+     {0x20DF23DC, 0x20DFB44B, 0x20DF708F, 0x20DF916E, 0x20DF5AA5}},
+    // Sony
+    {{0xA90, 0xA50, 0xA70, 0xA30, 0xA10},
+     {0xA90, 0xA50, 0xA70, 0xA30, 0xA10}},
+    // Hisense
+    {{0x55AA50AF, 0x55AAF00F, 0x55AA926D, 0x55AA58A7, 0x55AA7887},
+     {0x55AAD02F, 0x55AA30CF, 0x55AA28D7, 0x55AAB847, 0x55AA6897}},
+    // Philips
+    {{0x0C32, 0x0C34, 0x0C36, 0x0C38, 0x0C40},
+     {0x0C32, 0x0C34, 0x0C36, 0x0C38, 0x0C40}},
+    // Panasonic
+    {{0x100BCBD, 0x100ACAD, 0x1009C9D, 0x1008C8D, 0x1007C7D},
+     {0x100BCBD, 0x100ACAD, 0x1009C9D, 0x1008C8D, 0x1007C7D}}
 };
 
-const char* tvCommands[] = {
-    "Power", "Source", "Vol+", "Vol-", "Ch+", "Ch-", "Menu", "Enter", "Up", "Down", "Netflix", "Home"
+const IRCodes PROJECTOR_CODES[] = {
+    // Epson
+    {{0x4CB340BF, 0x4CB341BE, 0x4CB342BD, 0x4CB343BC, 0x4CB344BB},
+     {0x4CB3748B, 0x4CB3758A, 0x4CB37689, 0x4CB37788, 0x4CB37887}},
+    // BenQ
+    {{0xC4DA0001, 0xC4DA0002, 0xC4DA0003, 0xC4DA0004, 0xC4DA0005},
+     {0xC4DA1001, 0xC4DA1002, 0xC4DA1003, 0xC4DA1004, 0xC4DA1005}},
+    // ViewSonic
+    {{0x80D01001, 0x80D01002, 0x80D01003, 0x80D01004, 0x80D01005},
+     {0x80D02001, 0x80D02002, 0x80D02003, 0x80D02004, 0x80D02005}},
+    // Optoma
+    {{0xC1AA0001, 0xC1AA0002, 0xC1AA0003, 0xC1AA0004, 0xC1AA0005},
+     {0xC1AA1001, 0xC1AA1002, 0xC1AA1003, 0xC1AA1004, 0xC1AA1005}},
+    // Christie
+    {{0x1CE30001, 0x1CE30002, 0x1CE30003, 0x1CE30004, 0x1CE30005},
+     {0x1CE31001, 0x1CE31002, 0x1CE31003, 0x1CE31004, 0x1CE31005}}
 };
 
-const char* ledLightCommands[] = {
-    "Power", "Bright+", "Bright-", "Color+", "Color-", "Mode", "Speed+", "Speed-"
+const IRCodes LED_CODES[] = {
+    // Philips Hue
+    {{0x7887A001, 0x7887A002, 0x7887A003, 0x7887A004, 0x7887A005},
+     {0x7887B001, 0x7887B002, 0x7887B003, 0x7887B004, 0x7887B005}},
+    // LIFX
+    {{0x5AA5C001, 0x5AA5C002, 0x5AA5C003, 0x5AA5C004, 0x5AA5C005},
+     {0x5AA5D001, 0x5AA5D002, 0x5AA5D003, 0x5AA5D004, 0x5AA5D005}},
+    // Nanoleaf
+    {{0x9966E001, 0x9966E002, 0x9966E003, 0x9966E004, 0x9966E005},
+     {0x9966F001, 0x9966F002, 0x9966F003, 0x9966F004, 0x9966F005}},
+    // Govee
+    {{0x4BB61001, 0x4BB61002, 0x4BB61003, 0x4BB61004, 0x4BB61005},
+     {0x4BB62001, 0x4BB62002, 0x4BB62003, 0x4BB62004, 0x4BB62005}},
+    // TechLight
+    {{0x3DD31001, 0x3DD31002, 0x3DD31003, 0x3DD31004, 0x3DD31005},
+     {0x3DD32001, 0x3DD32002, 0x3DD32003, 0x3DD32004, 0x3DD32005}}
 };
 
-const char* whiteboardCommands[] = {
-    "Power", "Source", "Menu", "Pen", "Eraser", "Clear", "Save", "Next", "Back"
+const IRCodes WHITEBOARD_CODES[] = {
+    // Smart
+    {{0x4AB51001, 0x4AB51002, 0x4AB51003, 0x4AB51004, 0x4AB51005},
+     {0x4AB52001, 0x4AB52002, 0x4AB52003, 0x4AB52004, 0x4AB52005}},
+    // Promethean
+    {{0x5AA51001, 0x5AA51002, 0x5AA51003, 0x5AA51004, 0x5AA51005},
+     {0x5AA52001, 0x5AA52002, 0x5AA52003, 0x5AA52004, 0x5AA52005}},
+    // Clevertouch
+    {{0x6CC51001, 0x6CC51002, 0x6CC51003, 0x6CC51004, 0x6CC51005},
+     {0x6CC52001, 0x6CC52002, 0x6CC52003, 0x6CC52004, 0x6CC52005}},
+    // Boxlight
+    {{0x7EE51001, 0x7EE51002, 0x7EE51003, 0x7EE51004, 0x7EE51005},
+     {0x7EE52001, 0x7EE52002, 0x7EE52003, 0x7EE52004, 0x7EE52005}},
+    // Newline
+    {{0x8001001, 0x8001002, 0x8001003, 0x8001004, 0x8001005},
+     {0x8002001, 0x8002002, 0x8002003, 0x8002004, 0x8002005}}
 };
 
-const char* touchDisplayCommands[] = {
-    "Power", "Source", "Vol+", "Vol-", "Menu", "Freeze", "Touch", "Calibrate"
+const IRCodes TOUCH_DISPLAY_CODES[] = {
+    // ViewSonic
+    {{0x9AB51001, 0x9AB51002, 0x9AB51003, 0x9AB51004, 0x9AB51005},
+     {0x9AB52001, 0x9AB52002, 0x9AB52003, 0x9AB52004, 0x9AB52005}},
+    // Dell
+    {{0xAAC51001, 0xAAC51002, 0xAAC51003, 0xAAC51004, 0xAAC51005},
+     {0xAAC52001, 0xAAC52002, 0xAAC52003, 0xAAC52004, 0xAAC52005}},
+    // NEC
+    {{0xBBD51001, 0xBBD51002, 0xBBD51003, 0xBBD51004, 0xBBD51005},
+     {0xBBD52001, 0xBBD52002, 0xBBD52003, 0xBBD52004, 0xBBD52005}},
+    // Sharp
+    {{0xCCE51001, 0xCCE51002, 0xCCE51003, 0xCCE51004, 0xCCE51005},
+     {0xCCE52001, 0xCCE52002, 0xCCE52003, 0xCCE52004, 0xCCE52005}},
+    // LG
+    {{0xDDF51001, 0xDDF51002, 0xDDF51003, 0xDDF51004, 0xDDF51005},
+     {0xDDF52001, 0xDDF52002, 0xDDF52003, 0xDDF52004, 0xDDF52005}}
 };
 
 const int numMenuItems = sizeof(menuItems) / sizeof(menuItems[0]);
@@ -211,7 +205,6 @@ const int numProjectorBrands = sizeof(projectorBrands) / sizeof(projectorBrands[
 const int numLedLightBrands = sizeof(ledLightBrands) / sizeof(ledLightBrands[0]);
 const int numWhiteboardBrands = sizeof(whiteboardBrands) / sizeof(whiteboardBrands[0]);
 const int numTouchDisplayBrands = sizeof(touchDisplayBrands) / sizeof(touchDisplayBrands[0]);
-const int itemSpacing = 25;
 
 int currentMenuItem = 0;
 int currentSubMenuItem = 0;
@@ -220,15 +213,12 @@ bool inFileMenu = true;
 bool inIrRemoteMenu = false;
 bool inBrandMenu = false;
 bool inActionOverlay = false;
-bool inCommandMenu = false;
 int currentBrandMenuItem = 0;
 int currentDeviceType = 0;
-int currentAction = 0;
-int currentCommand = 0;
 
 void setup() {
     M5.begin();
-    irsend.begin();
+    IrSender.begin(IR_SEND_PIN);
     
     if(!SPIFFS.begin(true)) {
         M5.Lcd.println("SPIFFS Mount Failed");
@@ -245,158 +235,81 @@ void loop() {
     M5.update();
     
     if (M5.BtnPWR.wasPressed()) {
-        if (inCommandMenu) {
-            currentCommand = (currentCommand - 1 + getMaxCommands() + 1) % (getMaxCommands() + 1);
-            displayCommandMenu();
-        } else if (inActionOverlay) {
-            currentAction = (currentAction - 1 + 2) % 2;
-            displayActionOverlay();
-        } else if (inBrandMenu) {
-            currentSubMenuItem = (currentSubMenuItem - 1 + getMaxSubMenuItems()) % getMaxSubMenuItems();
-            displaySubMenu();
-        } else if (inSubmenu) {
-            currentSubMenuItem = (currentSubMenuItem - 1 + getMaxSubMenuItems() + 1) % (getMaxSubMenuItems() + 1);
+        handlePowerButton();
+    }
+
+    if (inActionOverlay) {
+        handleActionOverlay();
+    } else if (inBrandMenu) {
+        handleBrandMenu();
+    } else if (!inSubmenu) {
+        handleMainMenu();
+    } else {
+        handleSubMenu();
+    }
+}
+
+void handlePowerButton() {
+    if (inActionOverlay) {
+        inActionOverlay = false;
+        displaySubMenu();
+    } else if (inBrandMenu) {
+        currentSubMenuItem = (currentSubMenuItem - 1 + getMaxSubMenuItems()) % getMaxSubMenuItems();
+        displaySubMenu();
+    } else if (inSubmenu) {
+        currentSubMenuItem = (currentSubMenuItem - 1 + getMaxSubMenuItems() + 1) % (getMaxSubMenuItems() + 1);
+        displaySubMenu();
+    } else {
+        currentMenuItem = (currentMenuItem - 1 + numMenuItems) % numMenuItems;
+        displayMenuItem();
+    }
+}
+
+void handleActionOverlay() {
+    if (M5.BtnA.wasPressed()) {
+        spamIRCodes(currentDeviceType, currentSubMenuItem);
+        inActionOverlay = false;
+        displaySubMenu();
+    }
+}
+
+void handleBrandMenu() {
+    if (M5.BtnB.wasPressed()) {
+        currentSubMenuItem = (currentSubMenuItem + 1) % getMaxSubMenuItems();
+        displaySubMenu();
+    }
+    if (M5.BtnA.wasPressed()) {
+        if (currentSubMenuItem == getMaxSubMenuItems() - 1) {
+            inBrandMenu = false;
+            inIrRemoteMenu = true;
             displaySubMenu();
         } else {
-            currentMenuItem = (currentMenuItem - 1 + numMenuItems) % numMenuItems;
-            displayMenuItem();
-        }
-    }
-      if (inCommandMenu) {
-          if (M5.BtnB.wasPressed()) {
-              currentCommand = (currentCommand + 1) % (getMaxCommands() + 1);
-              displayCommandMenu();
-          }
-          if (M5.BtnA.wasPressed()) {
-              if (currentCommand == getMaxCommands()) {
-                  inCommandMenu = false;
-                  displaySubMenu();
-              } else {
-                  switch(currentSubMenuItem) {
-                      case 0: // Samsung
-                          irsend.sendNEC(SAMSUNG_CODES[currentCommand], 32);
-                          break;
-                      case 1: // LG
-                          irsend.sendNEC(LG_CODES[currentCommand], 32);
-                          break;
-                      case 2: // Sony
-                          irsend.sendSony(SONY_CODES[currentCommand], 12);
-                          break;
-                      case 3: // Hisense
-                          irsend.sendNEC(HISENSE_CODES[currentCommand], 32);
-                          break;
-                      case 4: // Philips
-                          irsend.sendRC6(PHILIPS_CODES[currentCommand], 20);
-                          break;
-                  }
-                
-                  M5.Lcd.fillRect(0, M5.Lcd.height()-10, M5.Lcd.width(), 10, RED);
-                  delay(100);
-                  M5.Lcd.fillRect(0, M5.Lcd.height()-10, M5.Lcd.width(), 10, BLACK);
-                
-                  displayCommandMenu();
-              }
-          }
-    } else if (inActionOverlay) {
-        if (M5.BtnB.wasPressed()) {
-            currentAction = (currentAction + 1) % 2;
+            inActionOverlay = true;
             displayActionOverlay();
         }
-        if (M5.BtnA.wasPressed()) {
-            if (currentAction == 1) {
-                inActionOverlay = false;
-                inCommandMenu = true;
-                currentCommand = 0;
-                displayCommandMenu();
-            } else {
-                switch(currentSubMenuItem) {
-                    case 0: // Samsung
-                        for(int i = 0; i < 12; i++) {
-                            irsend.sendNEC(SAMSUNG_CODES[i], 32);
-                            delay(100);
-                        }
-                        break;
-                    case 1: // LG
-                        for(int i = 0; i < 12; i++) {
-                            irsend.sendNEC(LG_CODES[i], 32);
-                            delay(100);
-                        }
-                        break;
-                    case 2: // Sony
-                        for(int i = 0; i < 12; i++) {
-                            irsend.sendSony(SONY_CODES[i], 12);
-                            delay(100);
-                        }
-                        break;
-                    case 3: // Hisense
-                        for(int i = 0; i < 12; i++) {
-                            irsend.sendNEC(HISENSE_CODES[i], 32);
-                            delay(100);
-                        }
-                        break;
-                    case 4: // Philips
-                        for(int i = 0; i < 12; i++) {
-                            irsend.sendRC6(PHILIPS_CODES[i], 20);
-                            delay(100);
-                        }
-                        break;
-                }
-                inActionOverlay = false;
-                displaySubMenu();
-            }
-        }
-    } else if (inBrandMenu) {
-        if (M5.BtnB.wasPressed()) {
-            currentSubMenuItem = (currentSubMenuItem + 1) % (getMaxSubMenuItems() + 1);
-            displaySubMenu();
-        }
-        if (M5.BtnA.wasPressed()) {
-            if (currentSubMenuItem == getMaxSubMenuItems()) {
-                inBrandMenu = false;
-                inIrRemoteMenu = true;
-                displaySubMenu();
-            } else {
-                inActionOverlay = true;
-                currentAction = 0;
-                displayActionOverlay();
-            }
-        }
-    } else if (!inSubmenu) {
-        if (M5.BtnB.wasPressed()) {
-            currentMenuItem = (currentMenuItem + 1) % numMenuItems;
-            displayMenuItem();
-        }
-        if (M5.BtnA.wasPressed()) {
-            inSubmenu = true;
-            currentSubMenuItem = 0;
-            displaySubMenu();
-        }
-    } else {
-        if (M5.BtnB.wasPressed()) {
-            int maxItems = getMaxSubMenuItems() + 1;
-            currentSubMenuItem = (currentSubMenuItem + 1) % maxItems;
-            displaySubMenu();
-        }
-        if (M5.BtnA.wasPressed()) {
-            if (inIrRemoteMenu) {
-                if (currentSubMenuItem == getMaxSubMenuItems()) {
-                    inIrRemoteMenu = false;
-                    displaySubMenu();
-                } else {
-                    currentDeviceType = currentSubMenuItem;
-                    inBrandMenu = true;
-                    currentBrandMenuItem = 0;
-                    displaySubMenu();
-                }
-            } else if (currentMenuItem == 4 && currentSubMenuItem == 0) {
-                inIrRemoteMenu = true;
-                currentSubMenuItem = 0;
-                displaySubMenu();
-            } else if (currentSubMenuItem == getMaxSubMenuItems()) {
-                inSubmenu = false;
-                displayMenuItem();
-            }
-        }
+    }
+}
+
+void handleMainMenu() {
+    if (M5.BtnB.wasPressed()) {
+        currentMenuItem = (currentMenuItem + 1) % numMenuItems;
+        displayMenuItem();
+    }
+    if (M5.BtnA.wasPressed()) {
+        inSubmenu = true;
+        currentSubMenuItem = 0;
+        displaySubMenu();
+    }
+}
+
+void handleSubMenu() {
+    if (M5.BtnB.wasPressed()) {
+        int maxItems = getMaxSubMenuItems() + 1;
+        currentSubMenuItem = (currentSubMenuItem + 1) % maxItems;
+        displaySubMenu();
+    }
+    if (M5.BtnA.wasPressed()) {
+        handleSubMenuSelection();
     }
 }
 
@@ -429,80 +342,6 @@ void displayMenuItem() {
     M5.Lcd.drawLine(centerX, centerY + textHeight + 2, centerX + textWidth, centerY + textHeight + 2, RED);
     
     drawNavigationDots();
-}
-
-void displayActionOverlay() {
-    int overlayWidth = 140;
-    int overlayHeight = 80;
-    int x = (M5.Lcd.width() - overlayWidth) / 2;
-    int y = (M5.Lcd.height() - overlayHeight) / 2;
-    
-    M5.Lcd.fillRoundRect(x, y, overlayWidth, overlayHeight, 8, 0x4208);
-    M5.Lcd.drawRoundRect(x, y, overlayWidth, overlayHeight, 8, WHITE);
-    
-    M5.Lcd.setTextSize(2);
-    for (int i = 0; i < 2; i++) {
-        int textWidth = M5.Lcd.textWidth(brandActions[i]);
-        int textX = (M5.Lcd.width() - textWidth) / 2;
-        int textY = y + 15 + (i * 25);
-        
-        if (i == currentAction) {
-            M5.Lcd.fillRoundRect(textX - 5, textY - 2, textWidth + 10, 20, 8, WHITE);
-            M5.Lcd.setTextColor(BLACK);
-        } else {
-            M5.Lcd.setTextColor(WHITE);
-        }
-        M5.Lcd.drawString(brandActions[i], textX, textY);
-    }
-}
-
-void displayCommandMenu() {
-    M5.Lcd.fillScreen(BLACK);
-    drawHeader();
-    
-    const char** commands;
-    int numCommands;
-    
-    switch(currentDeviceType) {
-        case 0: commands = tvCommands; numCommands = sizeof(tvCommands)/sizeof(tvCommands[0]); break;
-        case 1: commands = projectorCommands; numCommands = sizeof(projectorCommands)/sizeof(projectorCommands[0]); break;
-        case 2: commands = ledLightCommands; numCommands = sizeof(ledLightCommands)/sizeof(ledLightCommands[0]); break;
-        case 3: commands = whiteboardCommands; numCommands = sizeof(whiteboardCommands)/sizeof(whiteboardCommands[0]); break;
-        case 4: commands = touchDisplayCommands; numCommands = sizeof(touchDisplayCommands)/sizeof(touchDisplayCommands[0]); break;
-        default: return;
-    }
-    
-    int maxVisibleItems = (M5.Lcd.height() - 25) / itemSpacing;
-    int scrollOffset = max(0, currentCommand - maxVisibleItems + 1);
-    int endIndex = min(scrollOffset + maxVisibleItems, numCommands + 1);
-    
-    int yPos = 25;
-    M5.Lcd.setTextSize(2);
-    
-    for (int i = scrollOffset; i < endIndex; i++) {
-        const char* displayText = (i < numCommands) ? commands[i] : "<Back";
-        int textWidth = M5.Lcd.textWidth(displayText);
-        int x = (M5.Lcd.width() - textWidth) / 2;
-        
-        if (i == currentCommand) {
-            M5.Lcd.fillRoundRect(x - 5, yPos - 2, textWidth + 10, 20, 8, WHITE);
-            M5.Lcd.setTextColor(BLACK);
-        } else {
-            M5.Lcd.fillRoundRect(x - 5, yPos - 2, textWidth + 10, 20, 8, 0x4208);
-            M5.Lcd.setTextColor(WHITE);
-        }
-        M5.Lcd.drawString(displayText, x, yPos);
-        yPos += itemSpacing;
-    }
-    
-    if (scrollOffset > 0) {
-        M5.Lcd.setTextColor(RED);
-        M5.Lcd.drawString("^", M5.Lcd.width() - 15, 30);
-    }
-    if (endIndex < numCommands + 1) {
-        M5.Lcd.setTextColor(RED);
-        M5.Lcd.drawString("v", M5.Lcd.width() - 15, M5.Lcd.height() - 30);
-    }
 }
 
 void displaySubMenu() {
@@ -570,6 +409,27 @@ void displaySubMenu() {
     }
 }
 
+void handleSubMenuSelection() {
+    if (inIrRemoteMenu) {
+        if (currentSubMenuItem == getMaxSubMenuItems()) {
+            inIrRemoteMenu = false;
+            displaySubMenu();
+        } else {
+            currentDeviceType = currentSubMenuItem;
+            inBrandMenu = true;
+            currentBrandMenuItem = 0;
+            displaySubMenu();
+        }
+    } else if (currentMenuItem == 4 && currentSubMenuItem == 0) {
+        inIrRemoteMenu = true;
+        currentSubMenuItem = 0;
+        displaySubMenu();
+    } else if (currentSubMenuItem == getMaxSubMenuItems()) {
+        inSubmenu = false;
+        displayMenuItem();
+    }
+}
+
 void drawHeader() {
     M5.Lcd.setTextSize(1);
     M5.Lcd.setTextColor(WHITE);
@@ -598,6 +458,58 @@ void drawNavigationDots() {
     }
 }
 
+void displayActionOverlay() {
+    int overlayWidth = 140;
+    int overlayHeight = 50;
+    int x = (M5.Lcd.width() - overlayWidth) / 2;
+    int y = (M5.Lcd.height() - overlayHeight) / 2;
+    
+    M5.Lcd.fillRoundRect(x, y, overlayWidth, overlayHeight, 8, 0x4208);
+    M5.Lcd.drawRoundRect(x, y, overlayWidth, overlayHeight, 8, WHITE);
+    
+    M5.Lcd.setTextSize(2);
+    int textWidth = M5.Lcd.textWidth(brandActions[0]);
+    int textX = (M5.Lcd.width() - textWidth) / 2;
+    int textY = y + 15;
+    
+    M5.Lcd.fillRoundRect(textX - 5, textY - 2, textWidth + 10, 20, 8, WHITE);
+    M5.Lcd.setTextColor(BLACK);
+    M5.Lcd.drawString(brandActions[0], textX, textY);
+}
+
+void spamIRCodes(int deviceType, int brandIndex) {
+    const int REPEAT_COUNT = 15;
+    const int DELAY_MS = 100;
+    
+    const IRCodes* codes;
+    switch(deviceType) {
+        case 0: codes = &TV_CODES[brandIndex]; break;
+        case 1: codes = &PROJECTOR_CODES[brandIndex]; break;
+        case 2: codes = &LED_CODES[brandIndex]; break;
+        case 3: codes = &WHITEBOARD_CODES[brandIndex]; break;
+        case 4: codes = &TOUCH_DISPLAY_CODES[brandIndex]; break;
+        default: return;
+    }
+    
+    for(int i = 0; i < REPEAT_COUNT; i++) {
+        for(int j = 0; j < 5; j++) {
+            IrSender.sendNECMSB(codes->powerOn[j], 32);
+            delay(DELAY_MS);
+        }
+        for(int j = 0; j < 5; j++) {
+            IrSender.sendNECMSB(codes->powerOff[j], 32);
+            delay(DELAY_MS);
+        }
+    }
+}
+
+void showSpamStatus() {
+    M5.Lcd.fillScreen(BLACK);
+    M5.Lcd.setTextSize(2);
+    M5.Lcd.setTextColor(RED);
+    M5.Lcd.drawString("Spamming IR", 10, M5.Lcd.height()/2 - 20);
+}
+
 int getMaxSubMenuItems() {
     if (inBrandMenu) {
         switch(currentDeviceType) {
@@ -623,17 +535,6 @@ int getMaxSubMenuItems() {
         case 5: return numFilesItems;
         case 6: return numConfigItems;
         case 7: return numSettingsItems;
-        default: return 0;
-    }
-}
-
-int getMaxCommands() {
-    switch(currentDeviceType) {
-        case 0: return sizeof(tvCommands)/sizeof(tvCommands[0]);
-        case 1: return sizeof(projectorCommands)/sizeof(projectorCommands[0]);
-        case 2: return sizeof(ledLightCommands)/sizeof(ledLightCommands[0]);
-        case 3: return sizeof(whiteboardCommands)/sizeof(whiteboardCommands[0]);
-        case 4: return sizeof(touchDisplayCommands)/sizeof(touchDisplayCommands[0]);
         default: return 0;
     }
 }
