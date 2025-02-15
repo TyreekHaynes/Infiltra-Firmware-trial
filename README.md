@@ -7,38 +7,45 @@ Built by a dedicated community of **hackers, developers, and security enthusiast
 ---
 
 ## 🚀 **Features**
+
 ### 🔥 **Sub-GHz (CC1101 Support)**
-- **Signal Reading & Emulation** – Capture and replay remote signals.
-- **Spectrum Analyzer** – Visualize active RF frequencies.
-- **Signal Jamming** – Disrupt weak Sub-GHz signals.
-- **Signal Saving & Organization** – Manage Sub-GHz transmissions effectively.
-- **Full Compatibility** – Supports **LilyGO T-Embed CC1101, ESP32, M5 devices**, and more.
+- **Signal Reading & Emulation** – Capture and replay complex remote signals for testing and automation.
+- **Spectrum Analyzer** – Scan and visualize active RF frequencies in real-time with detailed graphs.
+- **Signal Jamming** – Disrupt weak Sub-GHz signals to test system robustness.
+- **Signal Saving & Organization** – Efficiently store and categorize captured signals for future analysis.
+- **Full Compatibility** – Seamlessly works with Flipper Zero, LilyGO T-Embed CC1101, ESP32, M5 devices, and more.
 
 ### 📶 **Wi-Fi Attacks & Network Testing**
-- **Wi-Fi Deauthentication (Including 5GHz on RTL8720DN)** – Disconnect devices from networks.
-- **Beacon Spam** – Generate fake access points with custom SSIDs.
-- **Evil Portal** – Establish phishing Wi-Fi login pages.
-- **Packet Sniffing & Monitoring** – Inspect network activity thoroughly.
-- **Optimized Deauther Firmware** – Specifically tuned for **ESP8266 and RTL8720DN**.
+- **Wi-Fi Deauthentication (Including 5GHz on RTL8720DN)** – Disconnect devices from networks and test security protocols.
+- **Beacon Spam** – Flood the area with hundreds of fake APs to test network response.
+- **Evil Portal** – Create sophisticated phishing Wi-Fi login pages to educate about phishing risks.
+- **Packet Sniffing & Monitoring** – Capture and analyze packets with detailed statistics and real-time updates.
+- **Advanced Traffic Analysis** – Use deep packet inspection to understand network load and vulnerabilities.
 
 ### 🌀 **Bluetooth (BLE) Exploits & Spam**
-- **BLE Device Spoofing** – Mimic popular BLE devices.
-- **BLE Spam (iOS, Android, Windows)** – Broadcast disruptive BLE signals.
-- **BLE Beacons & Advertising** – Send custom BLE payloads.
-- **BLE Packet Manipulation** – Tweak and analyze BLE traffic.
+- **BLE Device Spoofing** – Emulate and clone popular BLE device signatures to test device security.
+- **BLE Spam (iOS, Android, Windows)** – Generate high volumes of BLE traffic to test system tolerance.
+- **BLE Beacons & Advertising** – Create and broadcast custom BLE beacon signals for proximity marketing tests.
+- **BLE Packet Manipulation** – Intercept and modify BLE packets to demonstrate potential security breaches.
 
 ### 📛 **RFID & NFC Attacks**
-- **RFID Cloning & Emulation** – Duplicate access cards & badges.
-- **RFID Scanning & Saving** – Keep multiple RFID tag profiles.
-- **NFC Card Emulation** – Replicate & replay NFC credentials.
-- **Enhanced RFID Support** – Compatible with high-frequency and low-frequency tags.
+- **RFID Cloning & Emulation** – Clone access controls and identity badges with high precision.
+- **RFID Scanning & Saving** – Detect and save RFID signals from a distance to test security systems.
+- **NFC Card Emulation** – Emulate NFC card communications to test and debug NFC-enabled devices.
+- **Advanced Tag Manipulation** – Manipulate NFC and RFID tags to demonstrate data vulnerability.
 
 ### 📡 **Infrared (IR) Remotes & Attacks**
-- **IR Sending & Learning** – Record & reproduce remote control signals.
-- **Extensive IR Database** – Gain access to a comprehensive database featuring thousands of remotes. Each remote comes with a multitude of buttons, providing extensive control options.
-- **TV-B-Gone Mode** – Power down TVs in public settings.
-- **Custom IR Replay** – Execute stored IR signals with ease.
-- **Rich Remote Functionality** – Navigate and utilize detailed remote control interfaces, offering extensive functionalities for a wide range of devices.
+- **IR Sending & Learning** – Capture and replicate any IR signal from household remotes.
+- **Extensive IR Database** – Access and utilize a massive database with thousands of remotes and their full button mappings.
+- **TV-B-Gone Mode** – Discreetly switch off televisions in public areas to demonstrate potential disruptions.
+- **Custom IR Replay** – Load and execute complex IR command sequences for testing and demonstrations.
+
+### 🌐 **NRF24L01+ Support**
+- **2.4 GHz Communication Testing** – Test and debug communications using the NRF24L01+ module.
+- **Mesh Network Simulation** – Create and manage large-scale mesh networks to simulate real-world IoT environments.
+- **Data Packet Analysis** – Capture and analyze the data packets transmitted over NRF networks.
+- **Security Vulnerability Testing** – Test the security robustness of NRF communications against various attacks.
+
 ---
 
 ## 📦 **Installation Guide**
@@ -49,7 +56,7 @@ Built by a dedicated community of **hackers, developers, and security enthusiast
 - Download the appropriate **Signal X Firmware** package for your device.
 
 ### 2️⃣ **Flash the Firmware**
-**Instructions for M5Stick, Cardputer, and others.**
+**Detailed instructions for various devices including Flipper Zero, M5Stick, Cardputer, and others.**
 
 ---
 
