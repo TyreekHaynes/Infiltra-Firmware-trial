@@ -644,11 +644,16 @@ void handleWiFiScan() {
     if (firstRun) {
         M5.Lcd.fillScreen(BLACK);
         drawHeader();
-
-        M5.Lcd.fillRoundRect(20, M5.Lcd.height()/2 - 30, M5.Lcd.width() - 40, 60, 8, 0x2104);
+        
         M5.Lcd.setTextSize(2);
+        String scanText = "Scanning WiFi";
+        int textWidth = M5.Lcd.textWidth(scanText);
+        int centerX = (M5.Lcd.width() - textWidth) / 2;
+        int centerY = M5.Lcd.height() / 2 - 10;
+        
+        M5.Lcd.fillRoundRect(20, centerY - 20, M5.Lcd.width() - 40, 60, 8, 0x2104);
         M5.Lcd.setTextColor(CYAN);
-        M5.Lcd.drawString("Scanning", 40, M5.Lcd.height()/2 - 20);
+        M5.Lcd.drawString(scanText, centerX, centerY);
         
         for(int i = 0; i < 6; i++) {
             M5.Lcd.fillCircle(40 + (i * 15), M5.Lcd.height()/2 + 10, 3, CYAN);
@@ -658,20 +663,44 @@ void handleWiFiScan() {
         WiFi.mode(WIFI_STA);
         WiFi.disconnect();
         delay(100);
+
+        int validNetworks = 0;
+        int totalNetworks = WiFi.scanNetworks();
         
-        networkCount = WiFi.scanNetworks();
-        networks = new WiFiScanResult[networkCount];
-        
-        for(int i = 0; i < networkCount; i++) {
-            networks[i].ssid = WiFi.SSID(i).length() > 0 ? WiFi.SSID(i) : "Unknown Network";
-            networks[i].rssi = WiFi.RSSI(i);
-            networks[i].channel = WiFi.channel(i);
-            networks[i].encType = WiFi.encryptionType(i);
-            memcpy(networks[i].bssid, WiFi.BSSID(i), 6);
+        for(int i = 0; i < totalNetworks; i++) {
+            if(WiFi.channel(i) <= 14) {
+                validNetworks++;
+            }
         }
         
+        networkCount = validNetworks;
+        if (networks) delete[] networks;
+        networks = new WiFiScanResult[networkCount];
+        
+        int networkIndex = 0;
+        for(int i = 0; i < totalNetworks; i++) {
+            if(WiFi.channel(i) <= 14) {
+                networks[networkIndex].ssid = WiFi.SSID(i).length() > 0 ? WiFi.SSID(i) : "Hidden Network";
+                networks[networkIndex].rssi = WiFi.RSSI(i);
+                networks[networkIndex].channel = WiFi.channel(i);
+                networks[networkIndex].encType = WiFi.encryptionType(i);
+                memcpy(networks[networkIndex].bssid, WiFi.BSSID(i), 6);
+                networkIndex++;
+            }
+        }
+        
+        WiFi.scanDelete();
         firstRun = false;
-        displayNetwork(currentNetwork, networkCount, &networks[currentNetwork]);
+        
+        if(networkCount > 0) {
+            displayNetwork(currentNetwork, networkCount, &networks[currentNetwork]);
+        } else {
+            M5.Lcd.fillScreen(BLACK);
+            drawHeader();
+            M5.Lcd.setTextSize(2);
+            M5.Lcd.setTextColor(RED);
+            M5.Lcd.drawString("No Networks", 30, M5.Lcd.height()/2);
+        }
     }
     
     if (M5.BtnB.wasPressed() && networkCount > 0) {
@@ -680,9 +709,13 @@ void handleWiFiScan() {
     }
     
     if (M5.BtnPWR.wasPressed()) {
-        delete[] networks;
+        if (networks) {
+            delete[] networks;
+            networks = nullptr;
+        }
         inWiFiScan = false;
         inSubmenu = true;
+        firstRun = true;
         displaySubMenu();
     }
 }
