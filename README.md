@@ -35,10 +35,10 @@ Built by a dedicated community of **hackers, developers, and security enthusiast
 
 ### 📡 **Infrared (IR) Remotes & Attacks**
 - **IR Sending & Learning** – Record & reproduce remote control signals.
-- **Extensive IR Database** – Access a vast collection of IR remote configurations.
+- **Extensive IR Database** – Gain access to a comprehensive database featuring thousands of remotes. Each remote comes with a multitude of buttons, providing extensive control options.
 - **TV-B-Gone Mode** – Power down TVs in public settings.
-- **Custom IR Replay** – Execute stored IR signals.
-
+- **Custom IR Replay** – Execute stored IR signals with ease.
+- **Rich Remote Functionality** – Navigate and utilize detailed remote control interfaces, offering extensive functionalities for a wide range of devices.
 ---
 
 ## 📦 **Installation Guide**
