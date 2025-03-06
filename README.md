@@ -1,6 +1,6 @@
 # **Signal X Firmware**
 
-Welcome to **Signal X Firmware**, the **ultimate** custom firmware designed to **enhance the capabilities** of devices including **M5StickC Plus, M5StickC Plus2, Cardputer, LilyGO T-Embed CC1101, RTL8720DN BW16 WiFi 5GHz Deauther, ESP8266 Deauther, ESP32, and more**!
+Welcome to **Signal X Firmware**, the **ultimate** custom firmware designed to **enhance the capabilities** of devices including **M5StickC Plus, M5StickC Plus2, Cardputer, CYD, LilyGO T-Embed CC1101, RTL8720DN BW16 WiFi 5GHz Deauther, ESP8266 Deauther, ESP32, ESP32 WROOM (Headless Mode), WIO Terminal, and more**!
 
 Built by a dedicated community of **hackers, developers, and security enthusiasts**, Signal X delivers a **robust toolkit** for wireless testing, hardware hacking, and advanced emulation.
 
@@ -21,6 +21,7 @@ Built by a dedicated community of **hackers, developers, and security enthusiast
 - **Evil Portal** – Create sophisticated phishing Wi-Fi login pages to educate about phishing risks.
 - **Packet Sniffing & Monitoring** – Capture and analyze packets with detailed statistics and real-time updates.
 - **Advanced Traffic Analysis** – Use deep packet inspection to understand network load and vulnerabilities.
+- **WPS Attack** – Exploit WPS vulnerabilities for penetration testing.
 
 ### 🌀 **Bluetooth (BLE) Exploits & Spam**
 - **BLE Device Spoofing** – Emulate and clone popular BLE device signatures to test device security.
@@ -56,7 +57,8 @@ Built by a dedicated community of **hackers, developers, and security enthusiast
 - Download the appropriate **Signal X Firmware** package for your device.
 
 ### 2️⃣ **Flash the Firmware**
-**Detailed instructions for various devices including Flipper Zero, M5Stick, Cardputer, and others.**
+- Use our **[WebFlasher](https://signalx.ddns.net/)** for a seamless flashing experience.
+- Follow device-specific flashing instructions for Flipper Zero, M5Stick, Cardputer, and others.
 
 ---
 
@@ -86,3 +88,5 @@ Thanks to the **Signal X Community**, **M5Stack, ESP8266 Deauther Team**, and ot
 If you appreciate **Signal X Firmware**, consider **starring our GitHub repo**!
 
 🚀 **[Star Signal X on GitHub](https://github.com/lilbricky101/Signal-X-Firmware)** 🚀
+
+
