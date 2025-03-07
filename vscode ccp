@@ -35,48 +35,59 @@ struct SkimmerDevice {
     bool isActive;
 };
 
-void drawHeader();
-void drawNavigationDots();
-void displayMenuItem();
-void displaySubMenu();
-void displayActionOverlay();
-void displayNetwork(int index, int total, WiFiScanResult* networks);
-void displayBleDevice(int index, int total, BLEDeviceInfo* devices);
-void displaySkimmerInfo(int index);
-void handlePowerButton();
-void handleMainMenu();
-void handleSubMenu();
-void handleSubMenuSelection();
-void handleBrandMenu();
-void handleActionOverlay();
-void handleRfJammer();
-void handleRfVisualizer();
-void handleWiFiScan();
-void handlePacketMonitor();
-void handleBleScanner();
-void handleCardSkimmer();
-void handleColorSelection();
-void handleIrReplay();
-void drawPacketMonitorScreen();
-void promiscuousCallback(void* buf, wifi_promiscuous_pkt_type_t type);
-const char* getEncryptionType(wifi_auth_mode_t encType);
-int getMaxSubMenuItems();
-void spamIRCodes(int deviceType, int brandIndex);
-void handleDeauthAction(bool target);
-void performDeauth(WiFiScanResult* network, int count);
-
 struct IRCodes {
     unsigned long powerOn[5];
     unsigned long powerOff[5];
 };
 
-const int IR_SEND_PIN = 19;
-const int IR_RECEIVE_PIN = 33;
-const int RF_RECEIVER_PIN = 33;
-const int RF_TRANSMIT_PIN = 32;
+struct UITheme {
+    uint16_t primary;
+    uint16_t secondary;
+    uint16_t accent;
+    uint16_t background;
+    const char* name;
+};
 
+const int DEFAULT_IR_SEND_PIN = 19;
+const int DEFAULT_IR_RECEIVE_PIN = 33;
+const int DEFAULT_RF_RECEIVER_PIN = 33;
+const int DEFAULT_RF_TRANSMIT_PIN = 32;
+const int IR_RECEIVE_PIN = DEFAULT_IR_RECEIVE_PIN;
+
+int ir_send_pin = DEFAULT_IR_SEND_PIN;
+int ir_receive_pin = DEFAULT_IR_RECEIVE_PIN;
+int rf_receiver_pin = DEFAULT_RF_RECEIVER_PIN;
+int rf_transmit_pin = DEFAULT_RF_TRANSMIT_PIN;
+
+bool inCustomFqOverlay = false;
+bool inFixedFqOverlay = false;
+int currentCustomFqOption = 0;
+float selectedFrequency = 433.92;
+int currentRfModule = 0;
+const int numFixedFrequencies = 10;
+const float fixedFrequencies[10] = {
+    315.0, 433.92, 868.0, 915.0, 2400.0, 
+    434.0, 435.0, 866.0, 902.0, 928.0
+};
+int currentFixedFqOption = 0;
+float current_rf_frequency = 433.92;
 const float RF_FREQUENCY = 433.92;
 const float JAM_FREQUENCY = 433.92;
+
+bool inJammerModeOverlay = false;
+int currentJammerMode = 0;
+bool jammerTargetMode = false;
+float targetJamFrequency = 433.92;
+const int numTargetFrequencies = 5;
+const float targetFrequencies[numTargetFrequencies] = {
+    433.42, 433.67, 433.92, 434.17, 434.42
+};
+int currentTargetFreqIndex = 2;
+
+bool inIrModsOverlay = false;
+bool inRfModsOverlay = false;
+int currentIrModOption = 0;
+int currentRfModOption = 0;
 
 const int MAX_FILE_SIZE = 5000;
 const char* SIGNALXNETWORK_DIR = "/SXN";
@@ -94,6 +105,8 @@ unsigned long packetsPerSecond = 0;
 unsigned long lastPacketCount = 0;
 unsigned long lastCounterUpdate = 0;
 int currentWiFiChannel = 1;
+bool rfJammerFirstRun = true;
+bool rfVisualizerFirstRun = true;
 
 bool inSubmenu = false;
 bool scanning = false;
@@ -125,16 +138,7 @@ int currentSkimmer = 0;
 BLEDeviceInfo* bleDevices = nullptr;
 SkimmerDevice* skimmerDevices = nullptr;
 
-struct UITheme {
-    uint16_t primary;
-    uint16_t secondary;
-    uint16_t accent;
-    uint16_t background;
-    const char* name;
-};
-
 UITheme currentTheme = {WHITE, RED, 0x4208, BLACK, "Original"};
-
 const UITheme themes[] = {
     {WHITE, RED, 0x4208, BLACK, "Original"},
     {GREEN, YELLOW, 0x0618, BLACK, "Matrix"},
@@ -142,6 +146,50 @@ const UITheme themes[] = {
     {YELLOW, BLUE, 0x6B0C, BLACK, "Electric"},
     {0xFD20, 0xFB2F, 0xF800, BLACK, "Sunset"}
 };
+
+void drawHeader();
+void drawNavigationDots();
+void displayMenuItem();
+void displaySubMenu();
+void displayActionOverlay();
+void displayNetwork(int index, int total, WiFiScanResult* networks);
+void displayBleDevice(int index, int total, BLEDeviceInfo* devices);
+void displaySkimmerInfo(int index);
+void handlePowerButton();
+void handleMainMenu();
+void handleSubMenu();
+void handleSubMenuSelection();
+void handleBrandMenu();
+void handleActionOverlay();
+void handleRfJammer();
+void handleRfVisualizer();
+void handleWiFiScan();
+void handlePacketMonitor();
+void handleBleScanner();
+void handleCardSkimmer();
+void handleColorSelection();
+void handleIrReplay();
+void drawPacketMonitorScreen();
+void promiscuousCallback(void* buf, wifi_promiscuous_pkt_type_t type);
+const char* getEncryptionType(wifi_auth_mode_t encType);
+int getMaxSubMenuItems();
+void spamIRCodes(int deviceType, int brandIndex);
+void handleDeauthAction(bool target);
+void performDeauth(WiFiScanResult* network, int count);
+void displayCustomFqOverlay();
+void displayIrModsOverlay();
+void drawIrModsOverlay();
+void handleIrModsOverlay();
+void displayRfModsOverlay();
+void drawRfModsOverlay();
+void handleRfModsOverlay();
+void displayFixedFqOverlay();
+void drawFixedFqOverlay();
+void handleFixedFqOverlay();
+void drawCustomFqOverlay();
+void handleCustomFqOverlay();
+void displayJammerModeOverlay();
+void displayTargetFrequencyOverlay();
 
 const char* menuItems[] = {
     "Bluetooth", "WiFi", "RFID", "RF", "IR", "Files", "Config", "Settings"
@@ -216,6 +264,20 @@ const char* replayActions[] = {
     "Replay Code"
 };
 
+const char* irModOptions[] = {
+    "Default", "M5 ir mod", "G26"
+};
+
+const char* rfModOptions[] = {
+    "M5 Mod T/R", "G26", "CC1101"
+};
+
+const char* customFqOptions[] = {
+    "Default", "433.05-434.790", "Fixed FQ"
+
+};
+
+const int numIrModOptions = sizeof(irModOptions) / sizeof(irModOptions[0]);
 const int numMenuItems = sizeof(menuItems) / sizeof(menuItems[0]);
 const int numBluetoothItems = sizeof(bluetoothMenu) / sizeof(bluetoothMenu[0]);
 const int numWifiItems = sizeof(wifiMenu) / sizeof(wifiMenu[0]);
@@ -231,6 +293,8 @@ const int numProjectorBrands = sizeof(projectorBrands) / sizeof(projectorBrands[
 const int numLedLightBrands = sizeof(ledLightBrands) / sizeof(ledLightBrands[0]);
 const int numWhiteboardBrands = sizeof(whiteboardBrands) / sizeof(whiteboardBrands[0]);
 const int numTouchDisplayBrands = sizeof(touchDisplayBrands) / sizeof(touchDisplayBrands[0]);
+const int numRfModOptions = sizeof(rfModOptions) / sizeof(rfModOptions[0]);
+const int numCustomFqOptions = sizeof(customFqOptions) / sizeof(customFqOptions[0]);
 
 const IRCodes TV_CODES[] = {
     // Samsung
@@ -327,7 +391,7 @@ const IRCodes TOUCH_DISPLAY_CODES[] = {
 
 void setup() {
     M5.begin();
-    IrSender.begin(IR_SEND_PIN);
+    IrSender.begin(ir_send_pin);
     
     if(!SPIFFS.begin(true)) {
         M5.Lcd.println("SPIFFS Mount Failed");
@@ -348,14 +412,21 @@ void setup() {
 void loop() {
     M5.update();
     
+    static bool firstRun = true;
+    
     if (M5.BtnPWR.wasPressed()) {
-        if (inRfJammer) {
+        if (inJammerModeOverlay) {
+            inJammerModeOverlay = false;
+            firstRun = true;
+        } else if (inRfJammer) {
             inRfJammer = false;
             inSubmenu = true;
+            firstRun = true;
             displaySubMenu();
         } else if (inRfVisualizer) {
             inRfVisualizer = false;
             inSubmenu = true;
+            rfVisualizerFirstRun = true;
             displaySubMenu();
         } else if (inWiFiScan) {
             inWiFiScan = false;
@@ -382,12 +453,27 @@ void loop() {
             inIrReplay = false;
             inSubmenu = true;
             displaySubMenu();
+        } else if (inIrModsOverlay) {
+            inIrModsOverlay = false;
+            displaySubMenu();
+        } else if (inRfModsOverlay) {
+            inRfModsOverlay = false;
+            displaySubMenu();
+        } else if (inCustomFqOverlay) {
+            inCustomFqOverlay = false;
+            displaySubMenu();
+        } else if (inFixedFqOverlay) {
+            inFixedFqOverlay = false;
+            inCustomFqOverlay = true;
+            drawCustomFqOverlay();
         } else {
             handlePowerButton();
         }
     }
 
-    if (inRfJammer) {
+    if (inJammerModeOverlay) {
+        displayJammerModeOverlay();
+    } else if (inRfJammer) {
         handleRfJammer();
     } else if (inRfVisualizer) {
         handleRfVisualizer();
@@ -407,13 +493,20 @@ void loop() {
         handleBrandMenu();
     } else if (inIrReplay) {
         handleIrReplay();
+    } else if (inIrModsOverlay) {
+        handleIrModsOverlay();
+    } else if (inRfModsOverlay) {
+        handleRfModsOverlay();
+    } else if (inCustomFqOverlay) {
+        handleCustomFqOverlay();
+    } else if (inFixedFqOverlay) {
+        handleFixedFqOverlay();
     } else if (!inSubmenu) {
         handleMainMenu();
     } else {
         handleSubMenu();
     }
 }
-
 void handlePowerButton() {
     if (inActionOverlay) {
         inActionOverlay = false;
@@ -433,12 +526,17 @@ void handlePowerButton() {
 void handleRfVisualizer() {
     static int lastRfValue = 0;
     static unsigned long lastSignalCount = 0;
-    static bool firstRun = true;
     
-    int rfValue = analogRead(RF_RECEIVER_PIN);
-    float frequency = RF_FREQUENCY + (rfValue / 4095.0) * 10.0;
+    int rfValue = analogRead(rf_receiver_pin);
+    float frequency;
+
+    if (currentCustomFqOption == 1) { 
+        frequency = 433.05 + (rfValue / 4095.0) * 1.74;
+    } else {
+        frequency = selectedFrequency + (rfValue / 4095.0) * 0.5;
+    }
     
-    if (firstRun) {
+    if (rfVisualizerFirstRun) {
         M5.Lcd.fillRect(0, 21, M5.Lcd.width(), M5.Lcd.height()-21, BLACK);
         drawHeader();
         
@@ -461,7 +559,7 @@ void handleRfVisualizer() {
         M5.Lcd.setCursor(rightMargin + 5, 100);
         M5.Lcd.print("SIGNALS");
         
-        firstRun = false;
+        rfVisualizerFirstRun = false;
     }
     
     if (abs(rfValue - lastRfValue) > 50 || rfSignalCount != lastSignalCount) {
@@ -471,7 +569,7 @@ void handleRfVisualizer() {
         M5.Lcd.setTextSize(2);
         M5.Lcd.setTextColor(CYAN);
         M5.Lcd.setCursor(rightMargin + 5, 28);
-        M5.Lcd.printf("%.2f", frequency);
+        M5.Lcd.printf("%.3f", frequency);
         M5.Lcd.setTextSize(1);
         M5.Lcd.setCursor(rightMargin + 5, 43);
         M5.Lcd.print("MHz");
@@ -510,6 +608,40 @@ void handleRfVisualizer() {
     if(rfValue > 2048) {
         rfSignalCount++;
     }
+
+    static unsigned long lastModeUpdate = 0;
+    if (millis() - lastModeUpdate > 5000) {
+        int rightMargin = M5.Lcd.width()/2 + 8;
+        M5.Lcd.setTextSize(1);
+        M5.Lcd.setTextColor(YELLOW);
+
+        String modName;
+        switch(currentRfModule) {
+            case 1: modName = "M5 MOD"; break;
+            case 2: modName = "G26"; break;
+            case 3: modName = "CC1101"; break;
+            default: modName = "DEFAULT"; break;
+        }
+
+        String freqMode;
+        if (currentCustomFqOption == 1) {
+            freqMode = "RANGE";
+        } else if (currentCustomFqOption == 2) {
+            freqMode = "FIXED";
+        } else {
+            freqMode = "DEFAULT";
+        }
+        
+        M5.Lcd.fillRect(5, 25, 100, 15, BLACK);
+        M5.Lcd.setCursor(5, 25);
+        M5.Lcd.print("MOD: " + modName);
+        
+        M5.Lcd.fillRect(5, 40, 100, 15, BLACK);
+        M5.Lcd.setCursor(5, 40);
+        M5.Lcd.print("FQ: " + freqMode);
+        
+        lastModeUpdate = millis();
+    }
     
     delay(50);
 }
@@ -517,9 +649,11 @@ void handleRfVisualizer() {
 void handleRfJammer() {
     static bool firstRun = true;
     static unsigned long jamCount = 0;
+    static bool runnningJammer = false;
+    static unsigned long lastUpdate = 0;
     
     if (firstRun) {
-        M5.Lcd.fillRect(0, 21, M5.Lcd.width(), M5.Lcd.height()-21, BLACK);
+        M5.Lcd.fillScreen(BLACK);
         drawHeader();
         
         M5.Lcd.drawFastVLine(M5.Lcd.width()/2 - 1, 21, M5.Lcd.height()-21, 0x4208);
@@ -540,37 +674,216 @@ void handleRfJammer() {
         M5.Lcd.print("Power: 100mW");
         M5.Lcd.setCursor(5, 70);
         M5.Lcd.print("Band: ISM");
+
         M5.Lcd.setCursor(5, 90);
-        M5.Lcd.print("Mode: Sweep");
+        M5.Lcd.print("Mode: ");
+        M5.Lcd.setTextColor(GREEN);
+        M5.Lcd.print(jammerTargetMode ? "Target" : "Sweep");
+
+        M5.Lcd.setTextColor(YELLOW);
+        M5.Lcd.fillRoundRect(5, M5.Lcd.height() - 25, 35, 20, 4, 0x4208);
+        M5.Lcd.drawString("M5", 15, M5.Lcd.height() - 22);
+
+        int boxX = 5;
+        int boxY = 110;
+        int boxWidth = M5.Lcd.width()/2 - 15;
+        int boxHeight = 50;
+        
+        M5.Lcd.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 4, 0x2104);
+        M5.Lcd.setTextColor(WHITE);
+        
+        if (jammerTargetMode) {
+            M5.Lcd.drawString("TARGET", boxX + 5, boxY + 5);
+            M5.Lcd.drawFloat(targetJamFrequency, 2, boxX + 5, boxY + 20);
+            M5.Lcd.drawString("MHz", boxX + 50, boxY + 20);
+
+            int centerX = boxX + boxWidth/2;
+            M5.Lcd.fillTriangle(
+                centerX - 25, boxY + boxHeight - 5,
+                centerX + 25, boxY + boxHeight - 5,
+                centerX, boxY + boxHeight - 25,
+                RED
+            );
+        } else {
+            M5.Lcd.drawString("SWEEP", boxX + 5, boxY + 5);
+
+            int waveY = boxY + 30;
+            for (int x = boxX + 5; x < boxX + boxWidth - 5; x += 3) {
+                int offset = 10 * sin((x - boxX) * 0.1);
+                M5.Lcd.drawPixel(x, waveY + offset, RED);
+                M5.Lcd.drawPixel(x, waveY + offset - 1, RED);
+                M5.Lcd.drawPixel(x, waveY + offset + 1, RED);
+            }
+        }
         
         firstRun = false;
-        pinMode(RF_TRANSMIT_PIN, OUTPUT);
+        pinMode(rf_transmit_pin, OUTPUT);
+    }
+
+    if (millis() - lastUpdate > 500) {
+        int rightMargin = M5.Lcd.width()/2 + 8;
+        M5.Lcd.setTextSize(2);
+        M5.Lcd.setTextColor(RED);
+        M5.Lcd.setCursor(rightMargin + 5, 28);
+        M5.Lcd.printf("%.2f", jammerTargetMode ? targetJamFrequency : JAM_FREQUENCY);
+        M5.Lcd.setTextSize(1);
+        M5.Lcd.setCursor(rightMargin + 5, 43);
+        M5.Lcd.print("MHz");
+
+        int barWidth = 70;
+        int randomWidth = random(barWidth - 10, barWidth);
+        M5.Lcd.fillRect(rightMargin + 5, 72, 70, 12, BLACK);
+        M5.Lcd.fillRect(rightMargin + 5, 72, randomWidth, 12, RED);
+        M5.Lcd.drawRect(rightMargin + 5, 72, 70, 12, 0x4208);
+
+        M5.Lcd.fillRect(rightMargin + 5, 115, 70, 20, 0x4208);
+        M5.Lcd.setTextSize(2);
+        M5.Lcd.setTextColor(WHITE);
+        M5.Lcd.setCursor(rightMargin + 5, 115);
+        M5.Lcd.print(jamCount);
+        
+        lastUpdate = millis();
     }
     
-    int rightMargin = M5.Lcd.width()/2 + 8;
-    
-    M5.Lcd.setTextSize(2);
-    M5.Lcd.setTextColor(CYAN);
-    M5.Lcd.setCursor(rightMargin + 5, 28);
-    M5.Lcd.printf("%.2f", JAM_FREQUENCY);
-    M5.Lcd.setTextSize(1);
-    M5.Lcd.setCursor(rightMargin + 5, 43);
-    M5.Lcd.print("MHz");
-    
-    M5.Lcd.fillRect(rightMargin + 5, 72, 70, 12, RED);
-    M5.Lcd.drawRect(rightMargin + 5, 72, 70, 12, 0x4208);
-    
-    for(int i = 0; i < 255; i++) {
-        digitalWrite(RF_TRANSMIT_PIN, HIGH);
-        delayMicroseconds(random(1, 3));
-        digitalWrite(RF_TRANSMIT_PIN, LOW);
-        delayMicroseconds(random(1, 3));
+    if (jammerTargetMode) {
+        for(int i = 0; i < 255; i++) {
+            digitalWrite(rf_transmit_pin, HIGH);
+            delayMicroseconds(round(1000000/targetJamFrequency));
+            digitalWrite(rf_transmit_pin, LOW);
+            delayMicroseconds(round(1000000/targetJamFrequency));
+        }
+    } else {
+        for(int i = 0; i < 255; i++) {
+            digitalWrite(rf_transmit_pin, HIGH);
+            delayMicroseconds(random(1, 3));
+            digitalWrite(rf_transmit_pin, LOW);
+            delayMicroseconds(random(1, 3));
+        }
     }
     
     jamCount++;
-    delay(1);
+
+    if (M5.BtnA.wasPressed()) {
+        inJammerModeOverlay = true;
+        displayJammerModeOverlay();
+    }
 }
 
+void displayJammerModeOverlay() {
+    int overlayWidth = 160;
+    int overlayHeight = 120;
+    int x = (M5.Lcd.width() - overlayWidth) / 2;
+    int y = (M5.Lcd.height() - overlayHeight) / 2;
+
+    int selectedMode = jammerTargetMode ? 1 : 0;
+    
+    while (inJammerModeOverlay) {
+        M5.Lcd.fillRoundRect(x, y, overlayWidth, overlayHeight, 8, 0x4208);
+        M5.Lcd.drawRoundRect(x, y, overlayWidth, overlayHeight, 8, WHITE);
+        
+        M5.Lcd.setTextSize(2);
+        M5.Lcd.setTextColor(WHITE);
+        M5.Lcd.drawString("JAM MODE", x + 35, y + 10);
+        
+        M5.Lcd.drawLine(x + 10, y + 30, x + overlayWidth - 10, y + 30, WHITE);
+
+        for (int i = 0; i < 2; i++) {
+            int optionY = y + 45 + (i * 30);
+            const char* modeText = (i == 0) ? "Sweep" : "Target";
+            
+            if (i == selectedMode) {
+                M5.Lcd.fillRoundRect(x + 20, optionY - 2, overlayWidth - 40, 25, 4, WHITE);
+                M5.Lcd.setTextColor(BLACK);
+            } else {
+                M5.Lcd.drawRoundRect(x + 20, optionY - 2, overlayWidth - 40, 25, 4, WHITE);
+                M5.Lcd.setTextColor(WHITE);
+            }
+            
+            int textWidth = M5.Lcd.textWidth(modeText);
+            int textX = x + (overlayWidth - textWidth) / 2;
+            M5.Lcd.drawString(modeText, textX, optionY);
+        }
+
+        M5.update();
+        
+        if (M5.BtnB.wasPressed()) {
+            selectedMode = 1 - selectedMode;
+        }
+        
+        if (M5.BtnA.wasPressed()) {
+            jammerTargetMode = (selectedMode == 1);
+            
+            if (jammerTargetMode) {
+                displayTargetFrequencyOverlay();
+            } else {
+                inJammerModeOverlay = false;
+                return;
+            }
+        }
+        
+        if (M5.BtnPWR.wasPressed()) {
+            inJammerModeOverlay = false;
+            return;
+        }
+        
+        delay(50);
+    }
+}
+void displayTargetFrequencyOverlay() {
+    int overlayWidth = 180;
+    int overlayHeight = 140;
+    int x = (M5.Lcd.width() - overlayWidth) / 2;
+    int y = (M5.Lcd.height() - overlayHeight) / 2;
+
+    int selectedFreqIndex = currentTargetFreqIndex;
+    
+    while (true) {
+        M5.Lcd.fillRoundRect(x, y, overlayWidth, overlayHeight, 8, 0x4208);
+        M5.Lcd.drawRoundRect(x, y, overlayWidth, overlayHeight, 8, WHITE);
+        
+        M5.Lcd.setTextSize(2);
+        M5.Lcd.setTextColor(WHITE);
+        M5.Lcd.drawString("FREQUENCY", x + 30, y + 10);
+        
+        M5.Lcd.drawLine(x + 10, y + 30, x + overlayWidth - 10, y + 30, WHITE);
+
+        for (int i = 0; i < numTargetFrequencies; i++) {
+            int optionY = y + 40 + (i * 20);
+            char freqText[10];
+            sprintf(freqText, "%.2f MHz", targetFrequencies[i]);
+            
+            if (i == selectedFreqIndex) {
+                M5.Lcd.fillRoundRect(x + 15, optionY - 2, overlayWidth - 30, 18, 4, WHITE);
+                M5.Lcd.setTextColor(BLACK);
+            } else {
+                M5.Lcd.setTextColor(WHITE);
+            }
+            
+            M5.Lcd.setTextSize(1);
+            M5.Lcd.drawString(freqText, x + 25, optionY);
+        }
+
+        M5.update();
+        
+        if (M5.BtnB.wasPressed()) {
+            selectedFreqIndex = (selectedFreqIndex + 1) % numTargetFrequencies;
+        }
+        
+        if (M5.BtnA.wasPressed()) {
+            currentTargetFreqIndex = selectedFreqIndex;
+            targetJamFrequency = targetFrequencies[selectedFreqIndex];
+
+            inJammerModeOverlay = false;
+            return;
+        }
+        
+        if (M5.BtnPWR.wasPressed()) {
+            return;
+        }
+        
+        delay(50);
+    }
+}
 void handlePacketMonitor() {
     static unsigned long lastDraw = 0;
     
@@ -788,6 +1101,12 @@ void displayNetwork(int index, int total, WiFiScanResult* networks) {
 
 void handleBleScanner() {
     static bool hasScanned = false;
+    static unsigned long lastScanTime = 0;
+    static const unsigned long SCAN_TIMEOUT = 60000;
+
+    if (hasScanned && (millis() - lastScanTime > SCAN_TIMEOUT)) {
+        hasScanned = false;
+    }
     
     if (!hasScanned) {
         M5.Lcd.fillScreen(BLACK);
@@ -802,47 +1121,420 @@ void handleBleScanner() {
         M5.Lcd.fillRoundRect(20, centerY - 20, M5.Lcd.width() - 40, 60, 8, 0x2104);
         M5.Lcd.setTextColor(CYAN);
         M5.Lcd.drawString(scanText, centerX, centerY);
-        
-        BLEDevice::init("");
-        BLEScan* pBLEScan = BLEDevice::getScan();
-        pBLEScan->setActiveScan(true);
-        BLEScanResults results = pBLEScan->start(3);
-        pBLEScan->stop();
-        
-        bleDeviceCount = results.getCount();
-        if (bleDevices) delete[] bleDevices;
-        bleDevices = new BLEDeviceInfo[bleDeviceCount];
-        
-        for(int i = 0; i < bleDeviceCount; i++) {
-            BLEAdvertisedDevice device = results.getDevice(i);
-            bleDevices[i].name = device.getName().c_str();
-            if (bleDevices[i].name.length() == 0) {
-                bleDevices[i].name = "Unknown Device";
-            }
-            bleDevices[i].address = device.getAddress().toString().c_str();
-            bleDevices[i].rssi = device.getRSSI();
-            bleDevices[i].type = device.getAddress().toString().c_str();
-            bleDevices[i].isConnectable = true;
-        }
-        
-        hasScanned = true;
-        displayBleDevice(currentBleDevice, bleDeviceCount, &bleDevices[currentBleDevice]);
-    }
-    
-    if (M5.BtnB.wasPressed() && bleDeviceCount > 0) {
-        currentBleDevice = (currentBleDevice + 1) % bleDeviceCount;
-        displayBleDevice(currentBleDevice, bleDeviceCount, &bleDevices[currentBleDevice]);
-    }
-    
-    if (M5.BtnPWR.wasPressed()) {
-        inBleScanner = false;
-        inSubmenu = false;
-        hasScanned = false;
+
         if (bleDevices) {
             delete[] bleDevices;
             bleDevices = nullptr;
         }
+
+        BLEDevice::init("");
+        BLEScan* pBLEScan = BLEDevice::getScan();
+        pBLEScan->setActiveScan(true);
+
+        BLEScanResults results = pBLEScan->start(3);
+        yield();
+
+        bleDeviceCount = results.getCount();
+
+        int maxDevices = min(bleDeviceCount, 50);
+        
+        if (maxDevices > 0) {
+            bleDevices = new BLEDeviceInfo[maxDevices];
+
+            for(int i = 0; i < maxDevices; i++) {
+                BLEAdvertisedDevice device = results.getDevice(i);
+                bleDevices[i].name = device.getName().c_str();
+                if (bleDevices[i].name.length() == 0) {
+                    bleDevices[i].name = "Unknown Device";
+                }
+                bleDevices[i].address = device.getAddress().toString().c_str();
+                bleDevices[i].rssi = device.getRSSI();
+                bleDevices[i].type = "BLE";
+                bleDevices[i].isConnectable = true;
+            }
+
+            bleDeviceCount = maxDevices;
+        }
+
+        pBLEScan->clearResults();
+        
+        hasScanned = true;
+        lastScanTime = millis();
+        currentBleDevice = 0;
+
+        if (bleDeviceCount > 0) {
+            displayBleDevice(currentBleDevice, bleDeviceCount, &bleDevices[currentBleDevice]);
+        } else {
+            M5.Lcd.fillScreen(BLACK);
+            drawHeader();
+            M5.Lcd.setTextSize(2);
+            M5.Lcd.setTextColor(RED);
+            M5.Lcd.drawString("No BLE Devices", 30, M5.Lcd.height()/2);
+        }
+    }
+
+    static unsigned long lastYieldTime = 0;
+    if (millis() - lastYieldTime > 100) {
+        yield();
+        lastYieldTime = millis();
+    }
+
+    if (M5.BtnB.wasPressed() && bleDeviceCount > 0) {
+        currentBleDevice = (currentBleDevice + 1) % bleDeviceCount;
+        displayBleDevice(currentBleDevice, bleDeviceCount, &bleDevices[currentBleDevice]);
+    }
+
+    if (M5.BtnA.wasPressed()) {
+        hasScanned = false;
+    }
+
+    if (M5.BtnPWR.wasPressed()) {
+        inBleScanner = false;
+        inSubmenu = false;
+        hasScanned = false;
+
+        if (bleDevices) {
+            delete[] bleDevices;
+            bleDevices = nullptr;
+        }
+        
         displayMenuItem();
+    }
+}
+
+void displayIrModsOverlay() {
+    inIrModsOverlay = true;
+    currentIrModOption = 0;
+    drawIrModsOverlay();
+}
+
+void drawIrModsOverlay() {
+    int overlayWidth = 160;
+    int overlayHeight = 120;
+    int x = (M5.Lcd.width() - overlayWidth) / 2;
+    int y = (M5.Lcd.height() - overlayHeight) / 2;
+    
+    M5.Lcd.fillRoundRect(x, y, overlayWidth, overlayHeight, 8, 0x4208);
+    M5.Lcd.drawRoundRect(x, y, overlayWidth, overlayHeight, 8, WHITE);
+    
+    M5.Lcd.setTextSize(2);
+    M5.Lcd.setTextColor(WHITE);
+    int titleWidth = M5.Lcd.textWidth("IR MODS");
+    M5.Lcd.drawString("IR MODS", x + (overlayWidth - titleWidth) / 2, y + 10);
+    
+    M5.Lcd.drawLine(x + 10, y + 30, x + overlayWidth - 10, y + 30, WHITE);
+    
+    for (int i = 0; i < numIrModOptions; i++) {
+        int optionY = y + 40 + (i * 25);
+        
+        if (i == currentIrModOption) {
+            M5.Lcd.fillRoundRect(x + 10, optionY - 2, overlayWidth - 20, 20, 4, WHITE);
+            M5.Lcd.setTextColor(BLACK);
+        } else {
+            M5.Lcd.setTextColor(WHITE);
+        }
+        
+        int textWidth = M5.Lcd.textWidth(irModOptions[i]);
+        int textX = x + (overlayWidth - textWidth) / 2;
+        M5.Lcd.drawString(irModOptions[i], textX, optionY);
+    }
+}
+
+void handleIrModsOverlay() {
+    if (M5.BtnB.wasPressed()) {
+        currentIrModOption = (currentIrModOption + 1) % numIrModOptions;
+        drawIrModsOverlay();
+    }
+    
+    if (M5.BtnA.wasPressed()) {
+        switch (currentIrModOption) {
+            case 0:
+            ir_send_pin = 19;
+            ir_receive_pin = 33;
+                break;
+            case 1:
+                ir_send_pin = 32;
+                ir_receive_pin = 33;
+                break;
+            case 2:
+                ir_send_pin = 19;
+                ir_receive_pin = 26;
+                break;
+        }
+
+        IrSender.begin(ir_send_pin);
+
+        int x = M5.Lcd.width() / 2 - 50;
+        int y = M5.Lcd.height() - 30;
+        M5.Lcd.fillRoundRect(x, y, 100, 20, 4, GREEN);
+        M5.Lcd.setTextColor(BLACK);
+        M5.Lcd.setTextSize(1);
+        M5.Lcd.drawString("APPLIED!", x + 25, y + 5);
+        delay(1000);
+        
+        inIrModsOverlay = false;
+        displaySubMenu();
+    }
+    
+    if (M5.BtnPWR.wasPressed()) {
+        inIrModsOverlay = false;
+        displaySubMenu();
+    }
+}
+
+void displayRfModsOverlay() {
+    inRfModsOverlay = true;
+    currentRfModOption = 0;
+    drawRfModsOverlay();
+}
+
+void handleRfModsOverlay() {
+    if (M5.BtnB.wasPressed()) {
+        currentRfModOption = (currentRfModOption + 1) % numRfModOptions;
+        drawRfModsOverlay();
+    }
+    
+    if (M5.BtnA.wasPressed()) {
+
+        switch (currentRfModOption) {
+            case 0:
+                rf_transmit_pin = 32;
+                rf_receiver_pin = 33;
+                current_rf_frequency = 433.92;
+                currentRfModule = 1;
+                break;
+                
+            case 1:
+                rf_transmit_pin = 26;
+                rf_receiver_pin = 26;
+                current_rf_frequency = 433.92;
+                currentRfModule = 2;
+                break;
+                
+            case 2:
+                current_rf_frequency = 433.92; 
+                currentRfModule = 3;
+                break;
+        }
+
+        int x = M5.Lcd.width() / 2 - 50;
+        int y = M5.Lcd.height() - 30;
+        M5.Lcd.fillRoundRect(x, y, 100, 20, 4, GREEN);
+        M5.Lcd.setTextColor(BLACK);
+        M5.Lcd.setTextSize(1);
+        M5.Lcd.drawString("APPLIED!", x + 25, y + 5);
+        delay(1000);
+        
+        inRfModsOverlay = false;
+        displaySubMenu();
+    }
+    
+    if (M5.BtnPWR.wasPressed()) {
+        inRfModsOverlay = false;
+        displaySubMenu();
+    }
+}
+
+void drawRfModsOverlay() {
+    int overlayWidth = 160;
+    int overlayHeight = 120;
+    int x = (M5.Lcd.width() - overlayWidth) / 2;
+    int y = (M5.Lcd.height() - overlayHeight) / 2;
+    
+    M5.Lcd.fillRoundRect(x, y, overlayWidth, overlayHeight, 8, 0x4208);
+    M5.Lcd.drawRoundRect(x, y, overlayWidth, overlayHeight, 8, WHITE);
+    
+    M5.Lcd.setTextSize(2);
+    M5.Lcd.setTextColor(WHITE);
+    int titleWidth = M5.Lcd.textWidth("RF MODS");
+    M5.Lcd.drawString("RF MODS", x + (overlayWidth - titleWidth) / 2, y + 10);
+    
+    M5.Lcd.drawLine(x + 10, y + 30, x + overlayWidth - 10, y + 30, WHITE);
+    
+    for (int i = 0; i < numRfModOptions; i++) {
+        int optionY = y + 40 + (i * 25);
+        
+        if (i == currentRfModOption) {
+            M5.Lcd.fillRoundRect(x + 10, optionY - 2, overlayWidth - 20, 20, 4, WHITE);
+            M5.Lcd.setTextColor(BLACK);
+        } else {
+            M5.Lcd.setTextColor(WHITE);
+        }
+        
+        int textWidth = M5.Lcd.textWidth(rfModOptions[i]);
+        int textX = x + (overlayWidth - textWidth) / 2;
+        M5.Lcd.drawString(rfModOptions[i], textX, optionY);
+    }
+}
+
+void displayFixedFqOverlay() {
+    inFixedFqOverlay = true;
+    inCustomFqOverlay = false;
+    currentFixedFqOption = 0;
+    drawFixedFqOverlay();
+}
+
+void drawFixedFqOverlay() {
+    int overlayWidth = 180;
+    int overlayHeight = 150;
+    int x = (M5.Lcd.width() - overlayWidth) / 2;
+    int y = (M5.Lcd.height() - overlayHeight) / 2;
+    
+    M5.Lcd.fillScreen(BLACK);
+    drawHeader();
+    
+    M5.Lcd.fillRoundRect(x, y, overlayWidth, overlayHeight, 8, 0x4208);
+    M5.Lcd.drawRoundRect(x, y, overlayWidth, overlayHeight, 8, WHITE);
+    
+    M5.Lcd.setTextSize(2);
+    M5.Lcd.setTextColor(WHITE);
+    int titleWidth = M5.Lcd.textWidth("FIXED FQ");
+    M5.Lcd.drawString("FIXED FQ", x + (overlayWidth - titleWidth) / 2, y + 10);
+    
+    M5.Lcd.drawLine(x + 10, y + 30, x + overlayWidth - 10, y + 30, WHITE);
+    
+    const int visibleItems = 4;
+    int startIndex = max(0, currentFixedFqOption - (visibleItems / 2));
+    startIndex = min(startIndex, numFixedFrequencies - visibleItems);
+    startIndex = max(0, startIndex);
+    
+    for (int i = 0; i < min(visibleItems, numFixedFrequencies); i++) {
+        int itemIndex = startIndex + i;
+        if (itemIndex >= numFixedFrequencies) break;
+        
+        int optionY = y + 40 + (i * 25);
+        
+        if (itemIndex == currentFixedFqOption) {
+            M5.Lcd.fillRoundRect(x + 10, optionY - 2, overlayWidth - 20, 20, 4, WHITE);
+            M5.Lcd.setTextColor(BLACK);
+        } else {
+            M5.Lcd.setTextColor(WHITE);
+        }
+        
+        String freqText = String(fixedFrequencies[itemIndex], 3) + " MHz";
+        int textWidth = M5.Lcd.textWidth(freqText);
+        int textX = x + (overlayWidth - textWidth) / 2;
+        M5.Lcd.drawString(freqText, textX, optionY);
+    }
+
+    if (startIndex > 0) {
+        M5.Lcd.setTextColor(CYAN);
+        M5.Lcd.drawString("▲", x + overlayWidth - 20, y + 35);
+    }
+    
+    if (startIndex + visibleItems < numFixedFrequencies) {
+        M5.Lcd.setTextColor(CYAN);
+        M5.Lcd.drawString("▼", x + overlayWidth - 20, y + overlayHeight - 25);
+    }
+}
+
+void displayCustomFqOverlay() {
+    inCustomFqOverlay = true;
+    currentCustomFqOption = 0;
+    drawCustomFqOverlay();
+}
+
+void drawCustomFqOverlay() {
+    int overlayWidth = 180;
+    int overlayHeight = 120;
+    int x = (M5.Lcd.width() - overlayWidth) / 2;
+    int y = (M5.Lcd.height() - overlayHeight) / 2;
+    
+    M5.Lcd.fillRoundRect(x, y, overlayWidth, overlayHeight, 8, 0x4208);
+    M5.Lcd.drawRoundRect(x, y, overlayWidth, overlayHeight, 8, WHITE);
+    
+    M5.Lcd.setTextSize(2);
+    M5.Lcd.setTextColor(WHITE);
+    int titleWidth = M5.Lcd.textWidth("FREQUENCY");
+    M5.Lcd.drawString("FREQUENCY", x + (overlayWidth - titleWidth) / 2, y + 10);
+    
+    M5.Lcd.drawLine(x + 10, y + 30, x + overlayWidth - 10, y + 30, WHITE);
+    
+    for (int i = 0; i < numCustomFqOptions; i++) {
+        int optionY = y + 40 + (i * 25);
+        
+        if (i == currentCustomFqOption) {
+            M5.Lcd.fillRoundRect(x + 10, optionY - 2, overlayWidth - 20, 20, 4, WHITE);
+            M5.Lcd.setTextColor(BLACK);
+        } else {
+            M5.Lcd.setTextColor(WHITE);
+        }
+        
+        int textWidth = M5.Lcd.textWidth(customFqOptions[i]);
+        int textX = x + (overlayWidth - textWidth) / 2;
+        M5.Lcd.drawString(customFqOptions[i], textX, optionY);
+    }
+}
+
+void handleCustomFqOverlay() {
+    if (M5.BtnB.wasPressed()) {
+        currentCustomFqOption = (currentCustomFqOption + 1) % numCustomFqOptions;
+        drawCustomFqOverlay();
+    }
+    
+    if (M5.BtnA.wasPressed()) {
+        switch (currentCustomFqOption) {
+            case 0:
+                selectedFrequency = 433.92;
+                break;
+                
+            case 1:
+                break;
+                
+            case 2:
+                displayFixedFqOverlay();
+                return;
+        }
+        
+
+        int x = M5.Lcd.width() / 2 - 50;
+        int y = M5.Lcd.height() - 30;
+        M5.Lcd.fillRoundRect(x, y, 100, 20, 4, GREEN);
+        M5.Lcd.setTextColor(BLACK);
+        M5.Lcd.setTextSize(1);
+        M5.Lcd.drawString("APPLIED!", x + 25, y + 5);
+        delay(1000);
+        
+        inCustomFqOverlay = false;
+        displaySubMenu();
+    }
+    
+    if (M5.BtnPWR.wasPressed()) {
+        inCustomFqOverlay = false;
+        displaySubMenu();
+    }
+}
+
+void handleFixedFqOverlay() {
+    if (M5.BtnB.wasPressed()) {
+        currentFixedFqOption = (currentFixedFqOption + 1) % numFixedFrequencies;
+        drawFixedFqOverlay();
+    }
+    
+    if (M5.BtnA.wasPressed()) {
+        selectedFrequency = fixedFrequencies[currentFixedFqOption];
+        
+        M5.Lcd.fillScreen(BLACK);
+        drawHeader();
+        
+        M5.Lcd.setTextSize(2);
+        M5.Lcd.setTextColor(GREEN);
+        M5.Lcd.drawString("FREQUENCY SET", 20, 60);
+        
+        String freqText = String(selectedFrequency, 3) + " MHz";
+        int textWidth = M5.Lcd.textWidth(freqText);
+        int centerX = (M5.Lcd.width() - textWidth) / 2;
+        M5.Lcd.drawString(freqText, centerX, 90);
+        
+        delay(1500);
+        inFixedFqOverlay = false;
+        displaySubMenu();
+    }
+    
+    if (M5.BtnPWR.wasPressed()) {
+        inFixedFqOverlay = false;
+        inCustomFqOverlay = true;
+        drawCustomFqOverlay();
     }
 }
 
@@ -984,96 +1676,175 @@ void displayNoSkimmersFound() {
 }
 
 void handleColorSelection() {
-    static int selectedColor = 0;
-    static bool needsRedraw = true;
+    int selectedColor = 0;
+    bool exitMenu = false;
+
+    for (int i = 0; i < 5; i++) {
+        if (themes[i].primary == currentTheme.primary) {
+            selectedColor = i;
+            break;
+        }
+    }
     
-    if (needsRedraw) {
+    while (!exitMenu) {
         M5.Lcd.fillScreen(BLACK);
         drawHeader();
-        
-        for(int i = 0; i < 5; i++) {
-            int y = 30 + (i * 30);
-            if(i == selectedColor) {
-                M5.Lcd.fillRoundRect(10, y, M5.Lcd.width()-20, 25, 8, themes[i].primary);
-                M5.Lcd.setTextColor(themes[i].background);
-            } else {
-                M5.Lcd.drawRoundRect(10, y, M5.Lcd.width()-20, 25, 8, themes[i].primary);
-                M5.Lcd.setTextColor(themes[i].primary);
+
+        M5.Lcd.setTextSize(2);
+        M5.Lcd.setTextColor(WHITE);
+        M5.Lcd.drawString("UI THEMES", 60, 30);
+
+        M5.Lcd.fillRoundRect(20, 70, M5.Lcd.width()-40, 40, 8, themes[selectedColor].primary);
+
+        if (themes[selectedColor].primary == BLACK || themes[selectedColor].primary == BLUE) {
+            M5.Lcd.setTextColor(WHITE);
+        } else {
+            M5.Lcd.setTextColor(BLACK);
+        }
+
+        int textWidth = M5.Lcd.textWidth(themes[selectedColor].name);
+        int centerX = (M5.Lcd.width() - textWidth) / 2;
+        M5.Lcd.drawString(themes[selectedColor].name, centerX, 80);
+
+        M5.Lcd.setTextSize(1);
+        M5.Lcd.setTextColor(WHITE);
+        char positionText[10];
+        sprintf(positionText, "%d/5", selectedColor + 1);
+        M5.Lcd.drawString(positionText, M5.Lcd.width()/2 - 10, 120);
+
+        M5.Lcd.drawRect(20, 135, M5.Lcd.width()-40, 50, themes[selectedColor].accent);
+        M5.Lcd.fillRect(21, 136, M5.Lcd.width()-42, 48, themes[selectedColor].background);
+
+        M5.Lcd.setTextColor(themes[selectedColor].primary);
+        M5.Lcd.drawString("Sample Menu", 45, 145);
+        M5.Lcd.drawFastHLine(30, 160, M5.Lcd.width()-60, themes[selectedColor].secondary);
+        M5.Lcd.fillCircle(M5.Lcd.width()-50, 155, 5, themes[selectedColor].accent);
+        M5.Lcd.fillCircle(M5.Lcd.width()-35, 155, 5, themes[selectedColor].primary);
+
+        M5.Lcd.setTextColor(WHITE);
+        M5.Lcd.drawString("APPLY", 20, 200);
+        M5.Lcd.drawString("NEXT", 120, 200);
+        M5.Lcd.drawString("BACK", 200, 200);
+
+        bool buttonPressed = false;
+        while (!buttonPressed) {
+            M5.update();
+            
+            if (M5.BtnA.wasPressed()) {
+                currentTheme = themes[selectedColor];
+
+                M5.Lcd.fillScreen(currentTheme.background);
+                M5.Lcd.setTextColor(currentTheme.primary);
+                M5.Lcd.setTextSize(2);
+                M5.Lcd.drawString("Theme Applied!", 30, 100);
+                delay(1000);
+                
+                exitMenu = true;
+                buttonPressed = true;
             }
             
-            M5.Lcd.drawString(themes[i].name, 20, y+5);
-            M5.Lcd.fillRect(M5.Lcd.width()-50, y+5, 30, 15, themes[i].accent);
+            if (M5.BtnB.wasPressed()) {
+                selectedColor = (selectedColor + 1) % 5;
+                buttonPressed = true;
+            }
+            
+            if (M5.BtnPWR.wasPressed()) {
+                exitMenu = true;
+                buttonPressed = true;
+            }
+            
+            delay(50);
         }
-        needsRedraw = false;
     }
-    
-    if(M5.BtnB.wasPressed()) {
-        selectedColor = (selectedColor + 1) % 5;
-        needsRedraw = true;
-    }
-    
-    if(M5.BtnA.wasPressed()) {
-        currentTheme = themes[selectedColor];
-        inColorSelection = false;
-        displayMenuItem();
-    }
-    
-    if(M5.BtnPWR.wasPressed()) {
-        inColorSelection = false;
-        displayMenuItem();
-    }
+
+    inColorSelection = false;
+    inSubmenu = true;
+    displaySubMenu();
 }
 
 void handleCredits() {
     static int scrollPosition = 0;
     static const int SCROLL_AMOUNT = 10;
-    static const int MAX_SCROLL = 500;
-    static const char* creditsText = "Acknowledgment and Credits for Signal X Firmware Development\n\n"
-        "We wish to extend our deepest gratitude to the Signal X Team for their dedication and efforts in the development of the Signal X Firmware. "
-        "The progress we have achieved could not have been possible without the hard work and commitment of every team member involved.\n\n"
-        "Special thanks are due to @FTWLuke, @ᗩᗷᗪᑌᒪ, @CyberScripter, and all other people that have contributed for their pivotal roles in developing the firmware. "
-        "Their expertise and tireless contributions have been instrumental in bringing our ambitious project to fruition.\n\n"
-        "We are pleased to announce that the official release date for Signal X Firmware DEV 0.3 is scheduled for February 15, 2025, at 3:00 PM CST. "
-        "This major update will introduce a host of new features, enhancing the functionality and versatility of supported devices.\n\n"
-        "New Features in DEV 0.3:\n"
-        "• RF Jamming: Disrupt RF communications effectively.\n"
-        "• RF Visualizer: Visualize RF spectrum to identify active frequencies.\n"
-        "• Packet Sniffer: Capture and analyze network packets for security testing.\n"
-        "• WiFi Scanning: Scan and identify WiFi networks along with their attributes.\n"
-        "• BLE Scanning: Detect and analyze nearby Bluetooth devices.\n"
-        "• IR Spam All: Broadcast IR signals across multiple frequencies.\n"
-        "• UI Colors: Customize the user interface with a variety of color schemes.\n"
-        "• Card Skimmer Detector: Identify potential card skimming devices in the vicinity.\n"
-        "• IR Replay: Capture and replay infrared signals from various devices.\n"
-        "• Integrated File System: Manage and organize files directly on the device.\n"
-        "• IR Mods: Implement custom IR functionalities.\n"
-        "• RF Mods: Device-specific RF modifications to extend the capabilities of hardware.\n\n"
-        "Once again, thank you to the entire Signal X Team and our community for your support and enthusiasm. "
-        "We look forward to continuing our journey in advancing this technology together.";
+    static const int MAX_SCROLL = 100;
+    static const char* creditsText = "Signal X Network Team:\n\n"
+        "D1Goat:Main Dev\n\n"
+        "Hecker:Owner/dev\n\n"
+        "SgtFlxy:WebFlasher Dev";
 
-            M5.Lcd.fillScreen(BLACK);
-            drawHeader();
-            
-            M5.Lcd.setTextSize(1);
-            M5.Lcd.setTextColor(currentTheme.primary);
-            M5.Lcd.setTextWrap(true);
+    M5.Lcd.fillScreen(BLACK);
+    drawHeader();
+    
+    M5.Lcd.setTextSize(1);
+    M5.Lcd.setTextColor(currentTheme.primary);
+    M5.Lcd.setTextWrap(true);
 
-            const int textStartY = 25;
-            const int visibleHeight = M5.Lcd.height() - textStartY;
+    const int textStartY = 25;
+    const int visibleHeight = M5.Lcd.height() - textStartY;
 
-            M5.Lcd.setCursor(5, textStartY - scrollPosition);
-            M5.Lcd.print(creditsText);
-            
-            if (M5.BtnB.wasPressed()) {
-                scrollPosition = min(scrollPosition + SCROLL_AMOUNT, MAX_SCROLL);
-            }
-            
-            if (M5.BtnPWR.wasPressed()) {
-                scrollPosition = 0;
-                inSubmenu = false;
-                displayMenuItem();
-            }
-        }        
+    M5.Lcd.setCursor(5, textStartY - scrollPosition);
+    M5.Lcd.print(creditsText);
+    
+    if (M5.BtnB.wasPressed()) {
+        scrollPosition = min(scrollPosition + SCROLL_AMOUNT, MAX_SCROLL);
+    }
+    
+    if (M5.BtnPWR.wasPressed()) {
+        scrollPosition = 0;
+        inSubmenu = false;
+        displayMenuItem();
+    }
+}
+
+void handleTimeDisplay() {
+    static unsigned long lastUpdate = 0;
+    static bool exitRequested = false;
+    
+    if (lastUpdate == 0) {
+        M5.Lcd.fillScreen(BLACK);
+        drawHeader();
+        
+        M5.Lcd.setTextSize(2);
+        M5.Lcd.setTextColor(WHITE);
+        M5.Lcd.drawString("DEVICE UPTIME", 25, 30);
+        
+        M5.Lcd.drawLine(10, 55, M5.Lcd.width() - 10, 55, currentTheme.accent);
+        
+        lastUpdate = millis();
+    }
+
+    if (millis() - lastUpdate >= 1000) {
+        unsigned long uptime = millis();
+        unsigned long seconds = uptime / 1000;
+        unsigned long minutes = seconds / 60;
+        unsigned long hours = minutes / 60;
+        unsigned long days = hours / 24;
+        
+        seconds %= 60;
+        minutes %= 60;
+        hours %= 24;
+        
+        M5.Lcd.fillRect(20, 60, M5.Lcd.width() - 40, 80, BLACK);
+        
+        M5.Lcd.setTextSize(2);
+        M5.Lcd.setTextColor(CYAN);
+        
+        char timeStr[30];
+        sprintf(timeStr, "%ld days", days);
+        M5.Lcd.drawString(timeStr, 30, 70);
+        
+        sprintf(timeStr, "%02ld:%02ld:%02ld", hours, minutes, seconds);
+        M5.Lcd.drawString(timeStr, 30, 100);
+        
+        lastUpdate = millis();
+    }
+    
+    M5.update();
+    if (M5.BtnPWR.wasPressed()) {
+        lastUpdate = 0;
+        inSubmenu = true;
+        displaySubMenu();
+    }
+}
 
 void handleFileSystem() {
     M5.Lcd.fillScreen(BLACK);
@@ -1084,7 +1855,7 @@ void handleFileSystem() {
     M5.Lcd.setTextSize(1);
     M5.Lcd.setTextColor(WHITE);
 
-    const size_t totalBytes = 3 * 1024; // 3KB
+    const size_t totalBytes = 3 * 1024;
     size_t usedBytes = SPIFFS.usedBytes();
     size_t freeBytes = totalBytes - usedBytes;
 
@@ -1119,11 +1890,11 @@ void handleIrReplay() {
     static bool firstRun = true;
     static unsigned long animationTimer = 0;
     static int dotCount = 0;
-    static uint16_t rawData[100];  // Buffer for raw IR data
-    static uint16_t rawLength = 0;  // Length of captured data
-    static uint8_t protocol = 0;    // Captured protocol
-    static uint32_t address = 0;    // Captured address
-    static uint32_t command = 0;    // Captured command
+    static uint16_t rawData[100];
+    static uint16_t rawLength = 0;
+    static uint8_t protocol = 0;
+    static uint32_t address = 0;
+    static uint32_t command = 0;
     
     if (firstRun) {
         M5.Lcd.fillScreen(BLACK);
@@ -1139,8 +1910,8 @@ void handleIrReplay() {
         M5.Lcd.fillRoundRect(20, 75, M5.Lcd.width()-40, 30, 4, 0x2104);
         M5.Lcd.setTextSize(1);
         M5.Lcd.drawString("Freq: 38kHz", M5.Lcd.width()-80, 40);
-        
-        IrReceiver.begin(IR_RECEIVE_PIN, true);
+
+        IrReceiver.begin(ir_receive_pin, true);
         firstRun = false;
     }
 
@@ -1198,13 +1969,12 @@ void handleIrReplay() {
     if (M5.BtnA.wasPressed() && rawLength > 0) {
         IrReceiver.stop();
 
-        IrSender.sendRaw(rawData, rawLength, 38);  // 38kHz
+        IrSender.sendRaw(rawData, rawLength, 38);
 
         M5.Lcd.fillScreen(0x2104);
         delay(100);
         M5.Lcd.fillScreen(BLACK);
         
-
         IrReceiver.start();
         firstRun = true;
     }
@@ -1337,6 +2107,34 @@ void handleSubMenuSelection() {
     } else if (currentMenuItem == 3 && currentSubMenuItem == 1) {
         inRfJammer = true;
         M5.Lcd.fillScreen(BLACK);
+    } else if (currentMenuItem == 3 && currentSubMenuItem == 2) {
+        if (currentRfModule == 1 || currentRfModule == 2) {
+            displayCustomFqOverlay();
+        } else if (currentRfModule == 3) {
+            M5.Lcd.fillScreen(BLACK);
+            drawHeader();
+            
+            M5.Lcd.setTextSize(2);
+            M5.Lcd.setTextColor(YELLOW);
+            M5.Lcd.drawString("CC1101 CUSTOM", 20, 50);
+            M5.Lcd.drawString("COMING SOON", 30, 80);
+            
+            delay(1500);
+            displaySubMenu();
+        } else {
+            M5.Lcd.fillScreen(BLACK);
+            drawHeader();
+            
+            M5.Lcd.setTextSize(2);
+            M5.Lcd.setTextColor(RED);
+            M5.Lcd.drawString("SELECT RF MOD", 20, 60);
+            M5.Lcd.setTextSize(1);
+            M5.Lcd.drawString("Please select an RF mod first", 10, 90);
+            M5.Lcd.drawString("in Configuration > RF Mods", 20, 110);
+            
+            delay(2000);
+            displaySubMenu();
+        }
     } else if (currentMenuItem == 4 && currentSubMenuItem == 0) {
         inIrRemoteMenu = true;
         currentSubMenuItem = 0;
@@ -1354,6 +2152,10 @@ void handleSubMenuSelection() {
         handleCardSkimmer();
     } else if (currentMenuItem == 5 && currentSubMenuItem == 0) {
         handleFileSystem();
+    } else if (currentMenuItem == 6 && currentSubMenuItem == 0) {
+        displayIrModsOverlay();
+    } else if (currentMenuItem == 6 && currentSubMenuItem == 1) {
+        displayRfModsOverlay();
     } else if (currentMenuItem == 7 && currentSubMenuItem == 0) {
         inColorSelection = true;
         inSubmenu = false;
@@ -1380,23 +2182,23 @@ const char* getEncryptionType(wifi_auth_mode_t encType) {
 }
 
 void displayMenuItem() {
-    M5.Lcd.fillScreen(BLACK);
+    M5.Lcd.fillScreen(currentTheme.background);
     drawHeader();
     
     int prevItem = (currentMenuItem - 1 + numMenuItems) % numMenuItems;
     int nextItem = (currentMenuItem + 1) % numMenuItems;
     
     M5.Lcd.setTextSize(1);
-    M5.Lcd.setTextColor(0x4208);
+    M5.Lcd.setTextColor(currentTheme.accent);
     M5.Lcd.drawString(menuItems[prevItem], 5, M5.Lcd.height()/2 - 30);
     M5.Lcd.drawString(menuItems[nextItem], M5.Lcd.width() - M5.Lcd.textWidth(menuItems[nextItem]) - 5, M5.Lcd.height()/2 - 30);
     
     M5.Lcd.setTextSize(3);
-    M5.Lcd.setTextColor(RED);
+    M5.Lcd.setTextColor(currentTheme.secondary);
     M5.Lcd.drawString("<", 5, M5.Lcd.height()/2 - 12);
     M5.Lcd.drawString(">", M5.Lcd.width() - 20, M5.Lcd.height()/2 - 12);
     
-    M5.Lcd.setTextColor(WHITE);
+    M5.Lcd.setTextColor(currentTheme.primary);
     int textWidth = M5.Lcd.textWidth(menuItems[currentMenuItem]);
     int textHeight = M5.Lcd.fontHeight();
     int centerX = (M5.Lcd.width() - textWidth) / 2;
@@ -1405,13 +2207,13 @@ void displayMenuItem() {
     M5.Lcd.setCursor(centerX, centerY);
     M5.Lcd.print(menuItems[currentMenuItem]);
     
-    M5.Lcd.drawLine(centerX, centerY + textHeight + 2, centerX + textWidth, centerY + textHeight + 2, RED);
+    M5.Lcd.drawLine(centerX, centerY + textHeight + 2, centerX + textWidth, centerY + textHeight + 2, currentTheme.secondary);
     
     drawNavigationDots();
 }
 
 void displaySubMenu() {
-    M5.Lcd.fillScreen(BLACK);
+    M5.Lcd.fillScreen(currentTheme.background);
     drawHeader();
     
     const char** currentSubMenu;
@@ -1443,12 +2245,31 @@ void displaySubMenu() {
         }
     }
 
-    int maxVisibleItems = (M5.Lcd.height() - 25) / itemSpacing;
-    int scrollOffset = max(0, currentSubMenuItem - maxVisibleItems + 1);
-    int endIndex = min(scrollOffset + maxVisibleItems, maxItems + 1);
-    
-    for (int i = scrollOffset; i < endIndex; i++) {
-        int yPos = 25 + ((i - scrollOffset) * itemSpacing);
+    const int headerHeight = 25;
+    const int screenHeight = M5.Lcd.height() - headerHeight;
+    const int itemHeight = 20;
+    const int itemPadding = 5;
+    const int maxVisibleItems = screenHeight / (itemHeight + itemPadding);
+
+    int adjustedItemSpacing = min(itemSpacing, screenHeight / maxVisibleItems);
+
+    int scrollOffset = 0;
+    if (currentSubMenuItem >= maxVisibleItems - 1) {
+        scrollOffset = currentSubMenuItem - maxVisibleItems + 2;
+    }
+
+    scrollOffset = min(scrollOffset, maxItems + 1 - maxVisibleItems);
+    scrollOffset = max(0, scrollOffset);
+
+    int lastVisibleItem = min(scrollOffset + maxVisibleItems, maxItems + 1);
+
+    for (int i = scrollOffset; i < lastVisibleItem; i++) {
+        int yPos = headerHeight + ((i - scrollOffset) * adjustedItemSpacing);
+
+        if (i == lastVisibleItem - 1) {
+            yPos = min(yPos, M5.Lcd.height() - itemHeight - 5);
+        }
+        
         M5.Lcd.setTextSize(2);
         
         const char* menuText = (i < maxItems) ? currentSubMenu[i] : "<Back";
@@ -1456,22 +2277,22 @@ void displaySubMenu() {
         int x = (M5.Lcd.width() - textWidth) / 2;
         
         if (i == currentSubMenuItem) {
-            M5.Lcd.fillRoundRect(x - 5, yPos - 2, textWidth + 10, 20, 8, WHITE);
-            M5.Lcd.setTextColor(BLACK);
+            M5.Lcd.fillRoundRect(x - 5, yPos - 2, textWidth + 10, itemHeight, 8, currentTheme.primary);
+            M5.Lcd.setTextColor(currentTheme.background);
         } else {
-            M5.Lcd.fillRoundRect(x - 5, yPos - 2, textWidth + 10, 20, 8, 0x4208);
-            M5.Lcd.setTextColor(WHITE);
+            M5.Lcd.fillRoundRect(x - 5, yPos - 2, textWidth + 10, itemHeight, 8, currentTheme.accent);
+            M5.Lcd.setTextColor(currentTheme.primary);
         }
         M5.Lcd.drawString(menuText, x, yPos);
     }
-    
+
     M5.Lcd.setTextSize(2);
-    M5.Lcd.setTextColor(RED);
+    M5.Lcd.setTextColor(currentTheme.secondary);
     if (scrollOffset > 0) {
-        M5.Lcd.drawString("^", M5.Lcd.width() - 15, 30);
+        M5.Lcd.drawString("^", M5.Lcd.width() - 15, headerHeight);
     }
-    if (endIndex < maxItems + 1) {
-        M5.Lcd.drawString("v", M5.Lcd.width() - 15, M5.Lcd.height() - 30);
+    if (lastVisibleItem < maxItems + 1) {
+        M5.Lcd.drawString("v", M5.Lcd.width() - 15, M5.Lcd.height() - 20);
     }
 }
 
@@ -1496,14 +2317,14 @@ void displayActionOverlay() {
 
 void drawHeader() {
     M5.Lcd.setTextSize(1);
-    M5.Lcd.setTextColor(WHITE);
+    M5.Lcd.setTextColor(currentTheme.primary);
     int titleWidth = M5.Lcd.textWidth("SignalXNetwork V1.0");
     M5.Lcd.drawString("SignalXNetwork V1.0", (M5.Lcd.width() - titleWidth) / 2, 5);
     
     int batPercentage = M5.Power.getBatteryLevel();
     M5.Lcd.drawString(String(batPercentage) + "%", M5.Lcd.width() - 35, 5);
     
-    M5.Lcd.drawLine(0, 20, M5.Lcd.width(), 20, WHITE);
+    M5.Lcd.drawLine(0, 20, M5.Lcd.width(), 20, currentTheme.accent);
 }
 
 void drawNavigationDots() {
@@ -1515,9 +2336,9 @@ void drawNavigationDots() {
 
     for (int i = 0; i < numMenuItems; i++) {
         if (i == currentMenuItem) {
-            M5.Lcd.fillCircle(startX + i * (dotRadius * 2 + dotSpacing), y, dotRadius, WHITE);
+            M5.Lcd.fillCircle(startX + i * (dotRadius * 2 + dotSpacing), y, dotRadius, currentTheme.primary);
         } else {
-            M5.Lcd.drawCircle(startX + i * (dotRadius * 2 + dotSpacing), y, dotRadius, WHITE);
+            M5.Lcd.drawCircle(startX + i * (dotRadius * 2 + dotSpacing), y, dotRadius, currentTheme.accent);
         }
     }
 }
@@ -1574,13 +2395,44 @@ void spamIRCodes(int deviceType, int brandIndex) {
     }
     
     for(int i = 0; i < REPEAT_COUNT; i++) {
+        M5.update();
+        if (M5.BtnPWR.wasPressed()) {
+            inActionOverlay = false;
+            inBrandMenu = false;
+            inIrRemoteMenu = false;
+            inSubmenu = false;
+            displayMenuItem();
+            return;
+        }
+        
         for(int j = 0; j < 5; j++) {
             IrSender.sendNECMSB(codes->powerOn[j], 32);
             delay(DELAY_MS);
+
+            M5.update();
+            if (M5.BtnPWR.wasPressed()) {
+                inActionOverlay = false;
+                inBrandMenu = false;
+                inIrRemoteMenu = false;
+                inSubmenu = false;
+                displayMenuItem();
+                return;
+            }
         }
+        
         for(int j = 0; j < 5; j++) {
             IrSender.sendNECMSB(codes->powerOff[j], 32);
             delay(DELAY_MS);
+
+            M5.update();
+            if (M5.BtnPWR.wasPressed()) {
+                inActionOverlay = false;
+                inBrandMenu = false;
+                inIrRemoteMenu = false;
+                inSubmenu = false;
+                displayMenuItem();
+                return;
+            }
         }
     }
 }
