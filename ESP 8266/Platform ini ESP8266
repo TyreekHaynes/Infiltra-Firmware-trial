@@ -7,3 +7,9 @@ upload_speed = 921600
 lib_deps = 
     thingpulse/ESP8266 and ESP32 OLED driver for SSD1306 displays@^4.4.0
     fastled/FastLED@^3.5.0
+    adafruit/Adafruit NeoPixel@^1.11.0
+    
+build_flags =
+    -D PIO_FRAMEWORK_ARDUINO_LWIP2_LOW_MEMORY
+    -D BEARSSL_SSL_BASIC
+    -D NDEBUG
