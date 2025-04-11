@@ -57,7 +57,7 @@ Built by a dedicated community of **hackers, developers, and security enthusiast
 - Download the appropriate **Signal X Firmware** package for your device.
 
 ### 2️⃣ **Flash the Firmware**
-- Use our **[WebFlasher](https://signalx.ddns.net/)** for a seamless flashing experience.
+- Use our **[WebFlasher]()** for a seamless flashing experience.
 - Follow device-specific flashing instructions for Flipper Zero, M5Stick, Cardputer, and others.
 
 ---
