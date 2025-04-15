@@ -1,8 +1,8 @@
-# **Signal X Firmware**
+# **Infiltra Firmware**
 
-Welcome to **Signal X Firmware**, the **ultimate** custom firmware designed to **enhance the capabilities** of devices including **M5StickC Plus, M5StickC Plus2, Cardputer, CYD, LilyGO T-Embed CC1101, RTL8720DN BW16 WiFi 5GHz Deauther, ESP8266 Deauther, ESP32, ESP32 WROOM (Headless Mode), WIO Terminal, and more**!
+Welcome to **Infiltra Firmware**, the **ultimate** custom firmware designed to **enhance the capabilities** of devices including **M5StickC Plus, M5StickC Plus2, Cardputer, CYD, LilyGO T-Embed CC1101, RTL8720DN BW16 WiFi 5GHz Deauther, ESP8266 Deauther, ESP32, ESP32 WROOM (Headless Mode), WIO Terminal, and more**!
 
-Built by a dedicated community of **hackers, developers, and security enthusiasts**, Signal X delivers a **robust toolkit** for wireless testing, hardware hacking, and advanced emulation.
+Built by a dedicated community of **hackers, developers, and security enthusiasts**, Infiltra delivers a **robust toolkit** for wireless testing, hardware hacking, and advanced emulation.
 
 ---
 
@@ -54,7 +54,7 @@ Built by a dedicated community of **hackers, developers, and security enthusiast
 
 ### 1️⃣ **Download the Latest Release**
 - Visit our **[GitHub Releases](https://github.com/lilbricky101/Signal-X-Firmware/releases)** page.
-- Download the appropriate **Signal X Firmware** package for your device.
+- Download the appropriate **Infiltra Firmware** package for your device.
 
 ### 2️⃣ **Flash the Firmware**
 - Use our **[WebFlasher]()** for a seamless flashing experience.
@@ -63,30 +63,29 @@ Built by a dedicated community of **hackers, developers, and security enthusiast
 ---
 
 ## 🛠 **Development & Contributions**
-Join us in enhancing **Signal X Firmware**! Get started with our GitHub repository and contribute through pull requests.
+Join us in enhancing **Infiltra Firmware**! Get started with our GitHub repository and contribute through pull requests.
 
 ---
 
 ## 🤝 **Community & Support**
-Connect with the **Signal X Network** on Discord for the latest updates, discussions, and support!
+Connect with the **Infiltra Network** on Discord for the latest updates, discussions, and support!
 
-🔹 **Discord:** [Join Signal X Network](https://discord.gg/r7QzDmsbyd)
+🔹 **Discord:** [Join Infiltra Network](https://discord.gg/r7QzDmsbyd)
 
 ---
 
 ## 📜 **License**
-**Signal X Firmware** is open-source under the **MIT License**. Utilize, modify, and distribute it freely!
+**Infiltra Firmware** is open-source under the **MIT License**. Utilize, modify, and distribute it freely!
 
 ---
 
 ## 🧑‍💻 **Credits & Acknowledgments**
-Thanks to the **Signal X Community**, **M5Stack, ESP8266 Deauther Team**, and others for their contributions to this project.
+Thanks to the **Infiltra Community**, **M5Stack, ESP8266 Deauther Team**, and others for their contributions to this project.
 
 ---
 
 ⭐ **Support Us**
-If you appreciate **Signal X Firmware**, consider **starring our GitHub repo**!
+If you appreciate **Infiltra Firmware**, consider **starring our GitHub repo**!
 
-🚀 **[Star Signal X on GitHub](https://github.com/lilbricky101/Signal-X-Firmware)** 🚀
-
-
+🚀 **[Star Infiltra on GitHub](https://github.com/D3CRYPT-1/Infiltra-Firmware)** 🚀
+"""
