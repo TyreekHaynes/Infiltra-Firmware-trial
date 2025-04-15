@@ -57,7 +57,7 @@ Built by a dedicated community of **hackers, developers, and security enthusiast
 - Download the appropriate **Infiltra Firmware** package for your device.
 
 ### 2️⃣ **Flash the Firmware**
-- Use our **[WebFlasher]()** for a seamless flashing experience.
+- Use our **[WebFlasher](https://infiltra.xyz)** for a seamless flashing experience.
 - Follow device-specific flashing instructions for Flipper Zero, M5Stick, Cardputer, and others.
 
 ---
