@@ -85,7 +85,7 @@ Thanks to the **Infiltra Community**, **M5Stack, ESP8266 Deauther Team**, and ot
 [Fourier (9dl)](https://github.com/9dl) - Website Engineer & Main Firmware Developer 
 
 
-[FTWLuke](https://github.com/FTWLuke1) - Firmware Developer for ESP8266 & M5stickcplus2
+[FTWLuke](https://github.com/FTWLuke1) - Firmware Developer for ESP8266 & Headless Firmware
 
 ---
 
