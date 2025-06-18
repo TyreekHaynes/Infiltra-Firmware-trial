@@ -82,10 +82,10 @@ Connect with the **Infiltra Network** on Discord for the latest updates, discuss
 ## 🧑‍💻 **Credits & Acknowledgments**
 Thanks to the **Infiltra Community**, **M5Stack, ESP8266 Deauther Team**, and others for their contributions to this project.
 
-[Fourier (9dl)](https://github.com/9dl) - Website Engineer & Main Firmware Developer 
+[Fourier (9dl)](https://github.com/9dl) - Website Engineer  
 
 
-[FTWLuke](https://github.com/FTWLuke1) - Firmware Developer for ESP8266 & Headless Firmware
+[FTWLuke](https://github.com/FTWLuke1) - Main Firmware Developer 
 
 ---
 
