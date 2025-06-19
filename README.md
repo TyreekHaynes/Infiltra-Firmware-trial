@@ -1,4 +1,6 @@
-# **Infiltra Firmware**
+**Infiltra Firmware**
+
+<img src="https://socialify.git.ci/D3CRYPT-1/Infiltra-Firmware/image?custom_language=C%2B%2B&description=1&font=Source+Code+Pro&forks=1&issues=1&language=1&name=1&pattern=Circuit+Board&pulls=1&stargazers=1&theme=Dark" alt="Infiltra-Firmware" width="640" height="320" />
 
 Welcome to **Infiltra Firmware**, the **ultimate** custom firmware designed to **enhance the capabilities** of devices including **M5StickC Plus, M5StickC Plus2, Cardputer, CYD, LilyGO T-Embed CC1101, RTL8720DN BW16 WiFi 5GHz Deauther, ESP8266 Deauther, ESP32, ESP32 WROOM (Headless Mode), WIO Terminal, and more**!
 
@@ -94,4 +96,3 @@ Thanks to the **Infiltra Community**, **M5Stack, ESP8266 Deauther Team**, and ot
 If you appreciate **Infiltra Firmware**, consider **starring our GitHub repo**!
 
 🚀 **[Star Infiltra on GitHub](https://github.com/D3CRYPT-1/Infiltra-Firmware)** 🚀
-"""
