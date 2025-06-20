@@ -30,7 +30,7 @@ const char BLUETOOTH_MENU_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
         <div class="grid"></div>
     </div>
 
-    <a href="/" class="back-button">← Back to Main</a>
+    <a href="/" class="back-button" onclick="goBack(); return false;">← Back to Main</a>
 
     <div class="main">
         <div class="page-title">
@@ -81,6 +81,10 @@ const char BLUETOOTH_MENU_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
     </div>
     
     <script>
+        function goBack() {
+            window.history.back();
+        }
+
         function executeAction(action) {
             console.log('Bluetooth action:', action);
             
