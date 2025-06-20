@@ -70,7 +70,7 @@ const char LANDING_PAGE_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
         
         <div class="modules-container">
             <div class="modules-grid">
-                <div class="module">
+                <div class="module" onclick="window.location.href='/wifi'">
                     <div class="module-inner">
                         <div class="module-icon fallback-wifi">
                             <i class="fas fa-wifi"></i>
@@ -86,7 +86,7 @@ const char LANDING_PAGE_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
                     <div class="data-line" style="right: 0; width: 80px;"></div>
                 </div>
 
-                <div class="module">
+                <div class="module" onclick="window.location.href='/bluetooth'">
                     <div class="module-inner">
                         <div class="module-icon fallback-bluetooth">
                             <i class="fab fa-bluetooth-b"></i>
@@ -102,7 +102,7 @@ const char LANDING_PAGE_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
                     <div class="data-line" style="right: 20px; width: 60px;"></div>
                 </div>
 
-                <div class="module">
+                <div class="module" onclick="window.location.href='/rfid'">
                     <div class="module-inner">
                         <div class="module-icon fallback-rfid">
                             <i class="fas fa-id-card"></i>
@@ -122,7 +122,7 @@ const char LANDING_PAGE_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
                     <div class="data-line" style="right: 10px; width: 70px;"></div>
                 </div>
 
-                <div class="module">
+                <div class="module" onclick="window.location.href='/rf'">
                     <div class="module-inner">
                         <div class="module-icon fallback-rf">
                             <i class="fas fa-broadcast-tower"></i>
@@ -142,7 +142,7 @@ const char LANDING_PAGE_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
                     <div class="data-line" style="right: 5px; width: 75px;"></div>
                 </div>
 
-                <div class="module">
+                <div class="module" onclick="window.location.href='/ir'">
                     <div class="module-inner">
                         <div class="module-icon fallback-ir">
                             <i class="fas fa-satellite-dish"></i>
@@ -393,4 +393,4 @@ const char LANDING_PAGE_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 </body>
 </html>)rawliteral";
 
-#endif 
+#endif
