@@ -174,7 +174,7 @@ const char LANDING_PAGE_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
                     <div class="data-line" style="right: 25px; width: 55px;"></div>
                 </div>
 
-                <div class="module">
+                <div class="module" onclick="window.location.href='/config'">
                     <div class="module-inner">
                         <div class="module-icon fallback-config">
                             <i class="fas fa-cogs"></i>
@@ -194,7 +194,7 @@ const char LANDING_PAGE_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
                     <div class="data-line" style="right: 30px; width: 50px;"></div>
                 </div>
 
-                <div class="module">
+                <div class="module" onclick="window.location.href='/settings'">
                     <div class="module-inner">
                         <div class="module-icon fallback-settings">
                             <i class="fas fa-sliders-h"></i>
