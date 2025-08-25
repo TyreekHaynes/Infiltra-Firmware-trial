@@ -86,11 +86,11 @@ Connect with the **Infiltra Network** on Discord for the latest updates, discuss
 ## 🧑‍💻 **Credits & Acknowledgments**
 Thanks to the **Infiltra Community**, **M5Stack, ESP8266 Deauther Team**, and others for their contributions to this project.
 
-- **[FTW Luke (@d1goat0134)](https://github.com/FTWLuke1)** — Main Developer & Co-Owner of Infiltra  
 - **[Hecker (D3CRYPT) (@D3CRYPT-1)](https://github.com/D3CRYPT-1)** — Owner, CEO & Founder of Infiltra Network & Firmware  
+- **[FTW Luke (@d1goat0134)](https://github.com/FTWLuke1)** — Main Developer & Co-Owner of Infiltra  
 - **[SgtFlixy (@sgtflixy)](https://github.com/sgtflixy)** — Assisted with website  
 - **[Abdul (@ab9l)](https://github.com/ab9l)** — Website Developer & Designer  
-- **[Fourier (9dl)](https://github.com/9dl)** — Website Engineer & UI Maker — check bro out fr
+- **[Fourier (9dl)](https://github.com/9dl)** — Website Engineer & UI Maker 
 - **[Msi(sadecemsi)](https://github.com/sadecemsi)** — Headless Dev & html/css dev
 
 ---
