@@ -26,7 +26,7 @@ Use our official web flasher to get started in seconds:
 - **[Hecker (D3CRYPT) (@D3CRYPT-1)](https://github.com/D3CRYPT-1)** — Owner, CEO & Founder of Infiltra Network & Firmware  
 - **[sgtflixy (@sgtflixy)](https://github.com/sgtflixy)** — Assisted with website  
 - **[Abdul (@ab9l)](https://github.com/ab9l)** — Website Developer & Designer
-- **[Fourier (9dl)](https://github.com/9dl)** — Website Engineer & UI Maker — check bro out fr
+- **[Fourier (9dl)](https://github.com/9dl)** — Website Engineer & UI Maker
 
 ---
 
