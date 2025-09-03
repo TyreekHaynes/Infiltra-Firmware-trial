@@ -91,8 +91,7 @@ Thanks to the **Infiltra Community**, **M5Stack, ESP8266 Deauther Team**, and ot
 - **[SgtFlixy (@sgtflixy)](https://github.com/sgtflixy)** — Assisted with website  
 - **[Abdul (@ab9l)](https://github.com/ab9l)** — Website Developer & Designer  
 - **[Fourier (9dl)](https://github.com/9dl)** — Website Engineer & UI Maker 
-- **[Msi(sadecemsi)](https://github.com/sadecemsi)** — Headless Dev & html/css dev
-- **[Levi(levifrsn63)](https://github.com/levifrsn63)** — BW16 Firmware & Flasher Developer 
+- **[Msi(sadecemsi)](https://github.com/sadecemsi)** — Headless Dev & html/css dev 
 ---
 
 ⭐ **Support Us**
