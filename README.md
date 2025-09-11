@@ -1,7 +1,7 @@
 # Infiltra Firmware
 
 <p align="center">
-<img src="https://ibb.co/0RgxmKxG" width="640" height="320" />
+<img src="<a href="https://ibb.co/0RgxmKxG"><img src="https://i.ibb.co/0RgxmKxG/Untitled-800-x-500-px-1.gif" alt="Untitled-800-x-500-px-1" border="0"></a>" width="640" height="320" />
 </p>
 
 Welcome to **Infiltra Firmware**, the **ultimate** custom firmware designed to **enhance the capabilities** of devices including **M5StickC Plus, M5StickC Plus2, Cardputer, CYD, LilyGO T-Embed CC1101, RTL8720DN BW16 WiFi 5GHz Deauther, ESP8266 Deauther, ESP32, ESP32 WROOM (Headless Mode), WIO Terminal, and more**!
