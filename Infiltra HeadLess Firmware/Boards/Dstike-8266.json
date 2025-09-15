@@ -1,0 +1,22 @@
+{
+  "build": {
+    "core": "esp8266",
+    "mcu": "esp8266",
+    "variant": "esp12e"
+  },
+  "upload": {
+    "speed": 921600
+  },
+  "frameworks": ["arduino"],
+  "platform": "espressif8266",
+  "lib_deps": [
+    "https://github.com/esp8266/Arduino.git",
+    "https://github.com/esphome/ESPAsyncWebServer.git",
+    "bblanchon/ArduinoJson@^7.0.0"
+  ],
+  "build_flags": [
+    "-DPIO_FRAMEWORK_ARDUINO_LWIP2_LOW_MEMORY",
+    "-DBEARSSL_SSL_BASIC",
+    "-DNDEBUG"
+  ]
+}

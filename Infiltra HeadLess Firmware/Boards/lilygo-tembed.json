@@ -1,0 +1,26 @@
+{
+  "build": {
+    "core": "esp32",
+    "mcu": "esp32s3",
+    "variant": "esp32-s3-devkitc-1",
+    "partitions": "huge_app.csv",
+    "filesystem": "spiffs",
+    "flash_mode": "dio",
+    "f_flash": "80000000L"
+  },
+  "upload": {
+    "maximum_size": 16777216,
+    "flash_size": "16MB"
+  },
+  "frameworks": ["arduino"],
+  "platform": "espressif32",
+  "lib_deps": [
+    "https://github.com/Xinyuan-LilyGO/T-Embed.git",
+    "https://github.com/esphome/ESPAsyncWebServer.git",
+    "bblanchon/ArduinoJson@^7.0.0"
+  ],
+  "build_flags": [
+    "-DLILYGO_T_EMBED",
+    "-DCORE_DEBUG_LEVEL=5"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "build": {
+    "core": "esp32",
+    "mcu": "esp32",
+    "variant": "m5stick-c",
+    "partitions": "huge_app.csv",
+    "filesystem": "spiffs",
+    "f_flash": "40000000L"
+  },
+  "upload": {
+    "maximum_size": 4194304,
+    "flash_size": "4MB"
+  },
+  "frameworks": ["arduino"],
+  "platform": "espressif32",
+  "lib_deps": [
+    "https://github.com/m5stack/M5StickC-Plus.git",
+    "https://github.com/esphome/ESPAsyncWebServer.git",
+    "bblanchon/ArduinoJson@^7.0.0"
+  ],
+  "build_flags": [
+    "-DM5STICK_1",
+    "-DM5STICK_2",
+    "-DCORE_DEBUG_LEVEL=5"
+  ]
+}
