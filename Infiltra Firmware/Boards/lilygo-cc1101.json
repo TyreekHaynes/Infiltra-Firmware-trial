@@ -1,0 +1,45 @@
+{
+  "build": {
+    "core": "esp32",
+    "mcu": "esp32s3",
+    "variant": "esp32-s3-devkitc-1",
+    "partitions": "huge_app.csv",
+    "flash_mode": "qio",
+    "flash_size": "16MB",
+    "filesystem": "spiffs"
+  },
+  "upload": {
+    "maximum_size": 16777216,
+    "flash_size": "16MB"
+  },
+  "frameworks": ["arduino"],
+  "name": "LilyGO CC1101",
+  "vendor": "LilyGO",
+  "monitor": {
+    "speed": 115200
+  },
+  "build_flags": [
+    "-DLILYGO_CC1101",
+    "-DUSER_SETUP_LOADED",
+    "-DST7789_DRIVER=1",
+    "-DTFT_WIDTH=170",
+    "-DTFT_HEIGHT=320",
+    "-DTFT_INVERSION_ON",
+    "-DTFT_RGB_ORDER=1",
+    "-DTFT_BL=21",
+    "-DTFT_CS=41",
+    "-DTFT_DC=16",
+    "-DTFT_RST=40",
+    "-DTFT_MOSI=9",
+    "-DTFT_SCLK=11",
+    "-DTFT_MISO=10",
+    "-DSPI_FREQUENCY=40000000",
+    "-DSPI_READ_FREQUENCY=20000000",
+    "-DHAS_ENCODER",
+    "-DENCODER_INA=4",
+    "-DENCODER_INB=5",
+    "-DENCODER_KEY=0",
+    "-DBK_BTN=6",
+    "-DBTN_ACT=0"
+  ]
+}
