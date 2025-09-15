@@ -1,10 +1,10 @@
 #include "buttons.h"
 #if defined(M5CARDPUTER)
   #include <M5Cardputer.h>
-  static constexpr uint8_t ROT_TOP = 4;   
+  static constexpr uint8_t ROT_TOP = 4;
 #else
   #include <M5StickCPlus2.h>
-  static constexpr uint8_t ROT_TOP = 2;   
+  static constexpr uint8_t ROT_TOP = 2;
 #endif
 #include <Arduino.h>
 #include "././UserInterface/bitmaps/menu_bitmaps.h"
@@ -12,16 +12,17 @@
 #include "././UserInterface/menus/submenu_options.h"
 #include "././UserInterface/menus/menu_enums.h"
 #include "././Modules/Functions/brightness.h"
-#include "././Modules/Functions/stopwatch.h"        
+#include "././Modules/Functions/stopwatch.h"
 #include "././Modules/Functions/bgone.h"
 #include "././Modules/Functions/ir_read.h"
 #include "././Modules/Functions/wifi_scan.h"
 #include "././Modules/Functions/packet_scan.h"
-#include "././Modules/Functions/integrated_files.h" 
-#include "././Modules/Functions/rpi_connect_info.h" 
+#include "././Modules/Functions/integrated_files.h"
+#include "././Modules/Functions/rpi_connect_info.h"
 #include "././Modules/Functions/web_files.h"
 #include "././Modules/Functions/ble_scan.h"
 #include "././Modules/Functions/ble_google_adv.h"
+#include "././Modules/Core/Passlock.h"
 
 #if defined(M5CARDPUTER)
 #ifndef KEY_ENTER
@@ -46,9 +47,9 @@ static bool sAEdge=false, sBEdge=false, sCEdge=false, sExitEdge=false;
 static bool sInBLEScan      = false;
 static bool sInBLEGoogleAdv = false;
 static bool sInBrightness   = false;
-static bool sInIntegrated   = false;   
-static bool sInRpiInfo      = false;   
-static bool sInWebFiles     = false;   
+static bool sInIntegrated   = false;
+static bool sInRpiInfo      = false;
+static bool sInWebFiles     = false;
 
 void initButtons() {
 #if defined(M5CARDPUTER)
@@ -65,11 +66,11 @@ void updateButtons() {
       M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) ||
       M5Cardputer.Keyboard.isKeyPressed('\r');
   bool bRaw =
-      M5Cardputer.Keyboard.isKeyPressed('.') ||
-      M5Cardputer.Keyboard.isKeyPressed(KEY_DOT);
-  bool cRaw =
       M5Cardputer.Keyboard.isKeyPressed(';') ||
       M5Cardputer.Keyboard.isKeyPressed(KEY_SEMICOLON);
+  bool cRaw =
+      M5Cardputer.Keyboard.isKeyPressed('.') ||
+      M5Cardputer.Keyboard.isKeyPressed(KEY_DOT);
   bool exitRaw =
       M5Cardputer.Keyboard.isKeyPressed('`') ||
       M5Cardputer.Keyboard.isKeyPressed(KEY_BACKTICK);
@@ -84,15 +85,14 @@ void updateButtons() {
   lastCRaw = cRaw;
   lastExitRaw = exitRaw;
 #else
-  
   M5.update();
   sAEdge = M5.BtnA.wasPressed();
   sBEdge = M5.BtnB.wasPressed();
   static bool lastCRaw=false;
-  bool cRaw = !digitalRead(BTN_C_PIN); 
+  bool cRaw = !digitalRead(BTN_C_PIN);
   sCEdge = cRaw && !lastCRaw;
   lastCRaw = cRaw;
-  sExitEdge = false;
+  sExitEdge = false; 
 #endif
 }
 
@@ -133,7 +133,7 @@ static bool labelIsBLEScan(const String& label){
 }
 static bool labelIsBLEGoogleAdv(const String& label){
   String n = norm(label);
-  if (n.indexOf("google")>=0) return true; 
+  if (n.indexOf("google")>=0) return true;
   if ((n.indexOf("ble")>=0 || n.indexOf("bluetooth")>=0) &&
       (n.indexOf("adv")>=0 || n.indexOf("advert")>=0 || n.indexOf("advertise")>=0))
     return true;
@@ -155,6 +155,10 @@ static bool labelIsRpiInfo(const String& label){
   bool hasConn = (n.indexOf("connect") >= 0);
   return hasInfo && (hasRpi || hasConn);
 }
+static bool labelIsPasslock(const String& label){
+  String n = norm(label);
+  return (n.indexOf("passlock")>=0 || n.indexOf("passkey")>=0 || n.indexOf("password")>=0);
+}
 
 static void handleSubmenuAction(
   MenuState currentMenu,
@@ -167,7 +171,7 @@ static void handleSubmenuAction(
   bool& inWiFiScan,
   bool& inPacketScan
 ) {
-  
+
   if (currentMenu == EXTRAS_SUBMENU && idx == 1) {
     resetStopwatch();
     drawStopwatchScreen(*tft);
@@ -181,14 +185,14 @@ static void handleSubmenuAction(
     inBGone = true;
     return;
   }
-  
+
   if (currentMenu == IR_SUBMENU && idx == 4) {
     irReadReset();
     irReadDrawScreen(*tft);
     inIRRead = true;
     return;
   }
-  
+
   if (currentMenu == WIFI_SUBMENU && idx > 0) {
     if (idx == 1) { wifiScanReset();   wifiScanDrawScreen(*tft);   inWiFiScan   = true; return; }
     if (idx == 2) { packetScanReset(); packetScanDrawScreen(*tft); inPacketScan = true; return; }
@@ -196,7 +200,7 @@ static void handleSubmenuAction(
     if (labelIsPacketScan(label)) { packetScanReset(); packetScanDrawScreen(*tft); inPacketScan = true; return; }
     if (labelIsWifiScan(label))   { wifiScanReset();   wifiScanDrawScreen(*tft);   inWiFiScan   = true; return; }
   }
-  
+
   if (currentMenu == BLUETOOTH_SUBMENU && idx > 0) {
     if (idx == 1) { bleScanReset();      bleScanDrawScreen(*tft);      sInBLEScan = true;      return; }
     if (idx == 2) { bleGoogleAdvReset(); bleGoogleAdvDrawScreen(*tft); sInBLEGoogleAdv = true; return; }
@@ -204,7 +208,7 @@ static void handleSubmenuAction(
     if (labelIsBLEScan(label))        { bleScanReset();      bleScanDrawScreen(*tft);      sInBLEScan = true;      return; }
     if (labelIsBLEGoogleAdv(label))   { bleGoogleAdvReset(); bleGoogleAdvDrawScreen(*tft); sInBLEGoogleAdv = true; return; }
   }
-  
+
   if (currentMenu == SETTINGS_SUBMENU && idx > 0) {
     String label = getSubmenuOptionText();
     if (labelIsBrightness(label)) {
@@ -213,11 +217,22 @@ static void handleSubmenuAction(
       sInBrightness = true;
       return;
     }
+    if (labelIsPasslock(label)) {
+      Core::Passlock::runSettingsFlow();
+      tft->fillScreen(TFT_BLACK);
+      tft->setRotation(ROT_TOP);
+#if defined(M5CARDPUTER)
+      drawOptionsLayerBackground(*tft);
+#endif
+      drawSettingsSubmenu();
+      delay(30);
+      return;
+    }
   }
-  
+
   if (currentMenu == FILES_SUBMENU && idx > 0) {
     String label = getSubmenuOptionText();
-    
+
     if (labelIsIntegrated(label) || idx == 2) {
       tft->fillScreen(TFT_BLACK);
       tft->setRotation(ROT_TOP);
@@ -230,7 +245,7 @@ static void handleSubmenuAction(
       return;
     }
   }
-  
+
   if (currentMenu == RPI_SUBMENU && idx > 0) {
     String label = getSubmenuOptionText();
     if (labelIsRpiInfo(label)) {
@@ -245,7 +260,7 @@ static void handleSubmenuAction(
       return;
     }
   }
-  
+
 #if defined(M5CARDPUTER)
   drawOptionsLayerBackground(*tft);
 #endif
@@ -263,7 +278,7 @@ void handleAllButtonLogic(
   MenuState& currentMenu
 ) {
   unsigned long now = millis();
-  
+
   if (sInBLEGoogleAdv) {
     bool exitReq = false;
 #if defined(M5CARDPUTER)
@@ -288,7 +303,7 @@ void handleAllButtonLogic(
     delay(30);
     return;
   }
-  
+
   if (sInBLEScan) {
     bool exitReq = false;
 #if defined(M5CARDPUTER)
@@ -313,7 +328,7 @@ void handleAllButtonLogic(
     delay(30);
     return;
   }
-  
+
   if (sInBrightness) {
     bool exitReq = false;
     brightnessHandleInput(btnAPressed(), btnBPressed(), btnCPressed(), exitReq);
@@ -332,12 +347,12 @@ void handleAllButtonLogic(
     delay(30);
     return;
   }
-  
+
   if (sInIntegrated) {
     bool exitReq = false;
     integratedFilesHandleInput(btnAPressed(), btnBPressed(), btnCPressed(), exitReq);
     if (exitReq) {
-      
+
       extern bool integratedFilesConsumeOpenWebRequest();
       if (integratedFilesConsumeOpenWebRequest()) {
         sInIntegrated = false;
@@ -352,7 +367,7 @@ void handleAllButtonLogic(
         delay(20);
         return;
       }
-      
+
       sInIntegrated = false;
       tft->fillScreen(TFT_BLACK);
       tft->setRotation(ROT_TOP);
@@ -367,7 +382,7 @@ void handleAllButtonLogic(
     delay(30);
     return;
   }
-  
+
   if (sInRpiInfo) {
     bool exitReq = false;
     rpiInfoHandleInput(btnAPressed(), btnBPressed(), btnCPressed(), exitReq);
@@ -386,7 +401,7 @@ void handleAllButtonLogic(
     delay(20);
     return;
   }
-  
+
   if (sInWebFiles) {
     bool exitReq = false;
 #if defined(M5CARDPUTER)
@@ -411,7 +426,7 @@ void handleAllButtonLogic(
     delay(30);
     return;
   }
-  
+
   if (inStopwatch) {
     bool exitReq = false;
 #if defined(M5CARDPUTER)
@@ -431,12 +446,12 @@ void handleAllButtonLogic(
       delay(20);
       return;
     }
-    
+
     drawStopwatchTimeOnly(*tft);
     delay(20);
     return;
   }
-  
+
   if (inWiFiScan) {
     bool exitReq = false;
 #if defined(M5CARDPUTER)
@@ -460,7 +475,7 @@ void handleAllButtonLogic(
     delay(30);
     return;
   }
-  
+
   if (inPacketScan) {
     bool exitReq = false;
 #if defined(M5CARDPUTER)
@@ -485,7 +500,7 @@ void handleAllButtonLogic(
     delay(30);
     return;
   }
-  
+
   if (inIRRead) {
     bool exitReq = false;
 #if defined(M5CARDPUTER)
@@ -509,7 +524,7 @@ void handleAllButtonLogic(
     delay(30);
     return;
   }
-  
+
   if (inBGone) {
     bool exitReq = false;
     bgoneHandleInput(btnAPressed(), btnBPressed(), btnCPressed(), exitReq);
@@ -528,7 +543,7 @@ void handleAllButtonLogic(
     delay(30);
     return;
   }
-  
+
   if (inOptionScreen && btnCPressed()) {
     inOptionScreen = false;
     tft->fillScreen(TFT_BLACK);
@@ -556,7 +571,7 @@ void handleAllButtonLogic(
     delay(10);
     return;
   }
-  
+
   if (!inOptionScreen && !inStopwatch && !inIRRead && !inBGone &&
       !inWiFiScan && !inPacketScan && !sInBLEScan && !sInBLEGoogleAdv &&
       !sInBrightness && !sInIntegrated && !sInRpiInfo && !sInWebFiles) {
@@ -571,7 +586,6 @@ void handleAllButtonLogic(
         if (btnAPressed()) {
           int idx = getSubmenuOptionIndex();
           if (idx == 0) {
-            
             switch(currentMenu) {
               case WIFI_SUBMENU:       currentMenu = WIFI_MENU;       drawWiFiMenu(); break;
               case BLUETOOTH_SUBMENU:  currentMenu = BLUETOOTH_MENU;  drawBluetoothMenu(); break;
@@ -599,7 +613,7 @@ void handleAllButtonLogic(
       default: break;
     }
   }
-  
+
   static unsigned long last = 0;
   if (!inOptionScreen && !inStopwatch && !inIRRead && !inBGone &&
       !inWiFiScan && !inPacketScan && !sInBLEScan && !sInBLEGoogleAdv &&
@@ -647,7 +661,7 @@ void handleAllButtonLogic(
       }
     }
   }
-  
+
   if (!inOptionScreen && !inStopwatch && !inIRRead && !inBGone &&
       !inWiFiScan && !inPacketScan && !sInBLEScan && !sInBLEGoogleAdv &&
       !sInBrightness && !sInIntegrated && !sInRpiInfo && !sInWebFiles && btnAPressed()) {
@@ -673,5 +687,15 @@ void handleAllButtonLogic(
       case NFC_MENU:         currentMenu = NFC_SUBMENU;        setSubmenuType(SUBMENU_NFC);        drawNfcSubmenu();        break;
       default: break;
     }
+  }
+}
+
+extern "C" int passlock_button_read_blocking() {
+  for (;;) {
+    updateButtons();
+    if (btnAPressed()) return 1;
+    if (btnBPressed()) return 2;
+    if (btnCPressed()) return 3;
+    delay(5);
   }
 }

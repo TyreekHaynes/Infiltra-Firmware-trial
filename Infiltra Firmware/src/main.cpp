@@ -1,4 +1,12 @@
 #include <Arduino.h>
+#include <TFT_eSPI.h>
+#include "UserInterface/menus/menu_enums.h"
+#include "UserInterface/bitmaps/menu_bitmaps.h"
+#include "UserInterface/menus/menu_submenus.h"
+#include "UserInterface/menus/submenu_options.h"
+#include "Modules/Core/buttons.h"
+#include "Modules/Functions/stopwatch.h"
+#include "Modules/Core/Passlock.h"
 
 #if defined(M5CARDPUTER)
   #include <M5Cardputer.h>
@@ -12,18 +20,11 @@
   #include <M5StickCPlus2.h>
   static constexpr uint8_t ROT_TOP = 2;
 #endif
-#include <TFT_eSPI.h>
-#include "UserInterface/menus/menu_enums.h"
-#include "UserInterface/bitmaps/menu_bitmaps.h"
-#include "UserInterface/menus/menu_submenus.h"
-#include "UserInterface/menus/submenu_options.h"
-#include "Modules/Core/buttons.h"
-#include "Modules/Functions/stopwatch.h"
 #ifndef TFT_BL
   #define TFT_BL 27
 #endif
 #ifndef TFT_BACKLIGHT_ON
-  #define TFT_BACKLIGHT_ON 1   
+  #define TFT_BACKLIGHT_ON 1
 #endif
 
 TFT_eSPI tft;
@@ -31,8 +32,8 @@ bool inOptionScreen = false;
 bool inStopwatch    = false;
 bool inBGone        = false;
 bool inIRRead       = false;
-bool inWiFiScan     = false;   
-bool inPacketScan   = false;   
+bool inWiFiScan     = false;
+bool inPacketScan   = false;
 MenuState currentMenu = WIFI_MENU;
 
 void setup() {
@@ -56,13 +57,14 @@ void setup() {
   M5.Display.setRotation(ROT_TOP);
   M5.Display.setBrightness(200);
 #endif
-
   tft.init();
   tft.setRotation(ROT_TOP);
   tft.fillScreen(TFT_BLACK);
   delay(100);
   initButtons();
   initSubmenuOptions(&tft);
+  Core::Passlock::begin();
+  Core::Passlock::promptForUnlock();  
   drawWiFiMenu();
 }
 
@@ -76,5 +78,4 @@ void loop() {
                        inWiFiScan,
                        inPacketScan,
                        currentMenu);
-  
 }

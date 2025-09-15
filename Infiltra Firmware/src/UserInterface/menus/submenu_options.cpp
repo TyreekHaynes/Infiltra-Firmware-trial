@@ -4,7 +4,6 @@
 #include "menu_submenus.h"
 #include <algorithm>
 
-// ---------- Entry lists ----------
 static const String wifiEntries[] = {
   "<- Back", "Scan Hosts", "Evil Portal", "Packet Scan", "Raw Sniffer", "SSH"
 };
@@ -33,7 +32,7 @@ static const String badusbEntries[] = {
   "<- Back", "Execute", "Bad Ble", "Monitor Pc", "Keyboard", "Mouse"
 };
 static const String settingsEntries[] = {
-  "<- Back", "Theme", "Brightness", "Audio", "Volume", "Time", "Bat Saver", "Config Pins"
+  "<- Back", "Theme", "Brightness", "Passlock", "Audio", "Volume", "Time", "Bat Saver", "Config Pins"
 };
 static const String extrasEntries[] = {
   "<- Back", "Stopwatch", "Mic Spect", "Creds", "Schematics"
@@ -48,12 +47,10 @@ static const String nfcEntries[] = {
   "<- Back", "Read 13.56Mhz", "Write 13.56Mhz", "Clone 13.56Mhz", "Extract Key", "Scan Reader", "Wipe Tag"
 };
 
-// ---------- State ----------
 static TFT_eSPI*     tftPtr        = nullptr;
 static const String* entries       = nullptr;
 static int           entryCount    = 0;
 static int           selectedEntry = 0;
-
 void initSubmenuOptions(TFT_eSPI* display) { tftPtr = display; }
 
 void setSubmenuType(SubmenuType type) {
@@ -77,70 +74,60 @@ void setSubmenuType(SubmenuType type) {
   selectedEntry = (entryCount > 1 ? 1 : 0);
 }
 
-// ---------- Geometry / sizing ----------
 #if defined(M5CARDPUTER)
-  // Cardputer keeps 240x135 canvas but you want SUBMENU_ROT=1
   static constexpr int screenW        = 240;
   static constexpr int screenH        = 135;
   static constexpr int maxVisible     = 3;
   static constexpr int lineH          = 32;
   static constexpr int verticalOffset = 10;
-
   static constexpr int textSzSel      = 2;
   static constexpr int charWSel       = 6 * textSzSel;
   static constexpr int padSelX        = 10;
   static constexpr int padSelY        = 6;
   static constexpr int boxHSel        = (8 * textSzSel) + padSelY * 2;
-
   static constexpr int textSzUns      = 2;
   static constexpr int charWUns       = 6 * textSzUns;
   static constexpr int padUnsX        = 6;
   static constexpr int padUnsY        = 4;
   static constexpr int boxHUns        = (8 * textSzUns) + padUnsY * 2;
-
   static constexpr int sbW            = 6;
   static constexpr int sbRightMargin  = 2;
   static constexpr int sbMarginTop    = 6;
   static constexpr int sbMarginBottom = 6;
 #else
-  // M5StickC family (240x135)
+  
   static constexpr int screenW        = 240;
   static constexpr int screenH        = 135;
   static constexpr int maxVisible     = 3;
   static constexpr int lineH          = 32;
   static constexpr int verticalOffset = 10;
-
   static constexpr int textSzSel      = 2;
   static constexpr int charWSel       = 6 * textSzSel;
   static constexpr int padSelX        = 10;
   static constexpr int padSelY        = 6;
   static constexpr int boxHSel        = (8 * textSzSel) + padSelY * 2;
-
   static constexpr int textSzUns      = 2;
   static constexpr int charWUns       = 6 * textSzUns;
   static constexpr int padUnsX        = 6;
   static constexpr int padUnsY        = 4;
   static constexpr int boxHUns        = (8 * textSzUns) + padUnsY * 2;
-
   static constexpr int sbW            = 6;
   static constexpr int sbRightMargin  = 2;
   static constexpr int sbMarginTop    = 6;
   static constexpr int sbMarginBottom = 6;
 #endif
 
-// ---------- Drawing helpers ----------
+
 static void drawEntry(int idx, int bubbleX, int bubbleW, int y0, bool sel) {
   const int txtSz = sel ? textSzSel : textSzUns;
   const int chW   = sel ? charWSel  : charWUns;
   const int padY  = sel ? padSelY   : padUnsY;
   const int boxH  = sel ? boxHSel   : boxHUns;
   const int boxY  = y0 + (lineH - boxH)/2;
-
   tftPtr->drawRoundRect(bubbleX, boxY, bubbleW, boxH, 8, TFT_WHITE);
   if (sel) {
     tftPtr->drawRoundRect(bubbleX+1, boxY+1, bubbleW-2, boxH-2, 7, TFT_WHITE);
   }
-
   tftPtr->setTextSize(txtSz);
   tftPtr->setTextColor(TFT_WHITE, TFT_BLACK);
   const int textW = entries[idx].length() * chW;
@@ -150,34 +137,26 @@ static void drawEntry(int idx, int bubbleX, int bubbleW, int y0, bool sel) {
   tftPtr->print(entries[idx]);
 }
 
-// ---------- Main render ----------
 void drawSubmenuOptions() {
   if (!tftPtr || !entries) return;
-
 #if defined(M5CARDPUTER)
-  static constexpr uint8_t SUBMENU_ROT = 1;  // you chose 1 for Cardputer list
+  static constexpr uint8_t SUBMENU_ROT = 1;  
 #else
-  static constexpr uint8_t SUBMENU_ROT = 3;  // Stick uses 2
+  static constexpr uint8_t SUBMENU_ROT = 3;  
 #endif
-
   const int orig = tftPtr->getRotation();
   tftPtr->setRotation(SUBMENU_ROT);
-
   const int totalH = lineH * maxVisible;
   const int startY = ((screenH - totalH) / 2) + verticalOffset;
-
   int maxLen = 0;
   for (int i = 0; i < entryCount; ++i) {
     maxLen = std::max(maxLen, (int)entries[i].length());
   }
-
   const int bubbleWsel = maxLen * charWSel + padSelX * 2;
   const int bubbleWuns = maxLen * charWUns + padUnsX * 2;
   const int bubbleXsel = (screenW - bubbleWsel) / 2;
   const int bubbleXuns = (screenW - bubbleWuns) / 2;
-
   tftPtr->fillRect(bubbleXsel - 4, startY - 2, bubbleWsel + 8, totalH + 4, TFT_BLACK);
-
   for (int off = -1; off <= 1; ++off) {
     const int idx = (selectedEntry + off + entryCount) % entryCount;
     const int y0  = startY + (off + 1) * lineH;
@@ -186,23 +165,19 @@ void drawSubmenuOptions() {
     const int bx   = sel ? bubbleXsel : bubbleXuns;
     drawEntry(idx, bx, bw, y0, sel);
   }
-
   const int sbX = screenW - sbW - sbRightMargin;
   const int sbY = startY + sbMarginTop;
   const int sbH = totalH - (sbMarginTop + sbMarginBottom);
   tftPtr->fillRoundRect(sbX, sbY, sbW, sbH, 2, 0x2104);
-
   if (entryCount > 1) {
     const float pos = float(selectedEntry) / (entryCount - 1);
     const int th = std::max(sbH * maxVisible / entryCount, sbW);
     const int ty = sbY + int((sbH - th) * pos);
     tftPtr->fillRoundRect(sbX, ty, sbW, th, 2, TFT_WHITE);
   }
-
   tftPtr->setRotation(orig);
 }
 
-// ---------- Navigation helpers ----------
 void nextSubmenuOption()     { if (entries) selectedEntry = (selectedEntry + 1) % entryCount; }
 void previousSubmenuOption() { if (entries) selectedEntry = (selectedEntry - 1 + entryCount) % entryCount; }
 int  getSubmenuOptionIndex() { return selectedEntry; }
