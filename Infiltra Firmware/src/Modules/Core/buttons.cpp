@@ -1,12 +1,21 @@
+#include <Arduino.h>
 #include "buttons.h"
+
 #if defined(M5CARDPUTER)
   #include <M5Cardputer.h>
-  static constexpr uint8_t ROT_TOP = 4;
-#else
+  #define ROT_TOP 4
+#elif defined(M5STICK_C_PLUS_2)
   #include <M5StickCPlus2.h>
-  static constexpr uint8_t ROT_TOP = 2;
+  #define ROT_TOP 2
+#elif defined(M5STICK_C_PLUS_1_1)
+  // no M5* headers here
+  #define ROT_TOP 2
+#else
+  // fallback like Plus 2 if nothing defined
+  #include <M5StickCPlus2.h>
+  #define ROT_TOP 2
 #endif
-#include <Arduino.h>
+
 #include "././UserInterface/bitmaps/menu_bitmaps.h"
 #include "././UserInterface/menus/menu_submenus.h"
 #include "././UserInterface/menus/submenu_options.h"
@@ -24,6 +33,17 @@
 #include "././Modules/Functions/ble_google_adv.h"
 #include "././Modules/Core/Passlock.h"
 
+// -------- Pin defaults (overridden by board JSON) ----------
+#ifndef BTN_A_PIN
+#define BTN_A_PIN 37
+#endif
+#ifndef BTN_B_PIN
+#define BTN_B_PIN 39
+#endif
+#ifndef BTN_C_PIN
+#define BTN_C_PIN 35
+#endif
+
 #if defined(M5CARDPUTER)
 #ifndef KEY_ENTER
 #define KEY_ENTER 0x28
@@ -37,12 +57,9 @@
 #ifndef KEY_BACKTICK
 #define KEY_BACKTICK 0x35
 #endif
-#else
-#ifndef BTN_C_PIN
-#define BTN_C_PIN 35
-#endif
 #endif
 
+// ------------- edge/feature state --------------
 static bool sAEdge=false, sBEdge=false, sCEdge=false, sExitEdge=false;
 static bool sInBLEScan      = false;
 static bool sInBLEGoogleAdv = false;
@@ -51,26 +68,44 @@ static bool sInIntegrated   = false;
 static bool sInRpiInfo      = false;
 static bool sInWebFiles     = false;
 
+// ------------- init ----------------------------
 void initButtons() {
 #if defined(M5CARDPUTER)
+  // Keyboard handled in update()
+#elif defined(M5STICK_C_PLUS_2)
+  // Plus 2 uses M5 button objects (A/B). C is a raw GPIO if defined.
+  // M5.begin() done in main.cpp
+  if (BTN_C_PIN >= 0) pinMode(BTN_C_PIN, INPUT_PULLUP);
+#elif defined(M5STICK_C_PLUS_1_1)
+  // StickC Plus 1.1 uses RAW GPIO buttons only
+  pinMode(BTN_A_PIN, INPUT_PULLUP);
+  pinMode(BTN_B_PIN, INPUT_PULLUP);
+  if (BTN_C_PIN >= 0) pinMode(BTN_C_PIN, INPUT_PULLUP); // your JSON sets 0
 #else
-  pinMode(BTN_C_PIN, INPUT_PULLUP);
+  // Fallback like Plus 2
+  if (BTN_C_PIN >= 0) pinMode(BTN_C_PIN, INPUT_PULLUP);
 #endif
 }
 
+// ------------- per-frame update ----------------
 void updateButtons() {
 #if defined(M5CARDPUTER)
+  // Map Cardputer keys to A/B/C/Exit
   M5Cardputer.update();
   static bool lastARaw=false, lastBRaw=false, lastCRaw=false, lastExitRaw=false;
+
   bool aRaw =
       M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) ||
       M5Cardputer.Keyboard.isKeyPressed('\r');
+
   bool bRaw =
       M5Cardputer.Keyboard.isKeyPressed(';') ||
       M5Cardputer.Keyboard.isKeyPressed(KEY_SEMICOLON);
+
   bool cRaw =
       M5Cardputer.Keyboard.isKeyPressed('.') ||
       M5Cardputer.Keyboard.isKeyPressed(KEY_DOT);
+
   bool exitRaw =
       M5Cardputer.Keyboard.isKeyPressed('`') ||
       M5Cardputer.Keyboard.isKeyPressed(KEY_BACKTICK);
@@ -84,15 +119,47 @@ void updateButtons() {
   lastBRaw = bRaw;
   lastCRaw = cRaw;
   lastExitRaw = exitRaw;
-#else
+
+#elif defined(M5STICK_C_PLUS_2)
+  // Use M5 BtnA/BtnB, C from raw GPIO if present
   M5.update();
   sAEdge = M5.BtnA.wasPressed();
   sBEdge = M5.BtnB.wasPressed();
+
   static bool lastCRaw=false;
-  bool cRaw = !digitalRead(BTN_C_PIN);
+  bool cRaw = (BTN_C_PIN >= 0) ? !digitalRead(BTN_C_PIN) : false; // active LOW
   sCEdge = cRaw && !lastCRaw;
   lastCRaw = cRaw;
-  sExitEdge = false; 
+
+  sExitEdge = false;
+
+#elif defined(M5STICK_C_PLUS_1_1)
+  // Pure raw GPIO on StickC Plus 1.1 (active LOW)
+  static bool lastA=false, lastB=false, lastC=false;
+
+  bool a = !digitalRead(BTN_A_PIN);
+  bool b = !digitalRead(BTN_B_PIN);
+  bool c = (BTN_C_PIN >= 0) ? !digitalRead(BTN_C_PIN) : false;
+
+  sAEdge = a && !lastA;
+  sBEdge = b && !lastB;
+  sCEdge = c && !lastC;
+
+  lastA = a; lastB = b; lastC = c;
+  sExitEdge = false;
+
+#else
+  // Fallback like Plus 2
+  M5.update();
+  sAEdge = M5.BtnA.wasPressed();
+  sBEdge = M5.BtnB.wasPressed();
+
+  static bool lastCRaw=false;
+  bool cRaw = (BTN_C_PIN >= 0) ? !digitalRead(BTN_C_PIN) : false;
+  sCEdge = cRaw && !lastCRaw;
+  lastCRaw = cRaw;
+
+  sExitEdge = false;
 #endif
 }
 
@@ -102,6 +169,7 @@ bool btnCPressed(){ return sCEdge; }
 static bool btnExitSpecialPressed(){ return sExitEdge; }
 void finalizeButtons() { }
 
+// --------------------- helpers -----------------------
 static String norm(String s){
   s.toLowerCase();
   String r; r.reserve(s.length());
@@ -160,6 +228,7 @@ static bool labelIsPasslock(const String& label){
   return (n.indexOf("passlock")>=0 || n.indexOf("passkey")>=0 || n.indexOf("password")>=0);
 }
 
+// ---------------- submenu dispatcher -----------------
 static void handleSubmenuAction(
   MenuState currentMenu,
   int idx,
@@ -267,6 +336,7 @@ static void handleSubmenuAction(
   inOptionScreen = true;
 }
 
+// ---------------- main input router -------------------
 void handleAllButtonLogic(
   TFT_eSPI* tft,
   bool& inOptionScreen,
@@ -645,7 +715,7 @@ void handleAllButtonLogic(
           case WIFI_MENU:        currentMenu=BLUETOOTH_MENU;   drawBluetoothMenu();  break;
           case BLUETOOTH_MENU:   currentMenu=IR_MENU;          drawIRMenu();         break;
           case IR_MENU:          currentMenu=RF_MENU;          drawRFMenu();         break;
-          case RF_MENU:          currentMenu=NRF_MENU;         drawNRFMenu();        break;
+          case RF_MENU:          currentMenu=NRF_MENU;          drawNRFMenu();        break;
           case NRF_MENU:         currentMenu=RADIO_MENU;       drawRadioMenu();      break;
           case RADIO_MENU:       currentMenu=GPS_MENU;         drawGPSMenu();        break;
           case GPS_MENU:         currentMenu=RPI_MENU;         drawRPIMenu();        break;
@@ -690,6 +760,7 @@ void handleAllButtonLogic(
   }
 }
 
+// ------------- Passlock hook ---------------
 extern "C" int passlock_button_read_blocking() {
   for (;;) {
     updateButtons();
