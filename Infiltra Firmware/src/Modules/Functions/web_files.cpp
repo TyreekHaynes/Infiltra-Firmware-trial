@@ -1,5 +1,5 @@
 #include "web_files.h"
-#include "../../UserInterface/menus/menu_submenus.h"  // drawOptionsLayerBackground
+#include "../../UserInterface/menus/menu_submenus.h"  
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WebServer.h>
@@ -13,48 +13,30 @@
   static constexpr uint8_t ROT_TOP = 2;
 #endif
 static constexpr uint8_t ROT_ALT = (ROT_TOP + 1) & 0x3;
-
-// ───────────────────────────────────────────────────────────────────────────────
-// Config / paths
-// ───────────────────────────────────────────────────────────────────────────────
-static const char* kWriteRoot = "/integrated";   // all new files/folders go here
-static const char* kMainRoot  = "/main";         // virtual, read-only (Infiltra Main in web)
-
-// ───────────────────────────────────────────────────────────────────────────────
-// State
-// ───────────────────────────────────────────────────────────────────────────────
+static const char* kWriteRoot = "/integrated";   
+static const char* kMainRoot  = "/main";         
 static WebServer* sSrv = nullptr;
 static DNSServer* sDns = nullptr;
 static bool       sRunning    = false;
-
 static bool       sFrameDrawn = false;
-static bool       sStaticDrawn= false;   // cards & frames drawn
-static bool       sDirty      = true;    // only for big structure changes
-
+static bool       sStaticDrawn= false;   
+static bool       sDirty      = true;    
 static IPAddress  sStaIp;
 static IPAddress  sApIp;
 static uint16_t   sPort = 80;
 static const uint16_t DNS_PORT = 53;
-
 static String     sApSsid   = "";
-static String     sApPass   = "";   // empty → open AP
+static String     sApPass   = "";   
 static bool       sApStarted= false;
 static bool       sHasSta   = false;
-
-static uint32_t   sLastReqMs= 0;    // activity flash (small dot)
+static uint32_t   sLastReqMs= 0;    
 static bool       sShowSta  = false;
-
-// UI geom (device)
 static int  W=0,H=0;
-static int  bx=0,by=0,bw=0,bh=0;   // outer frame
-static int  cx=0,cy=0,cw=0;        // content area
-
-// Card rects (for partial/targeted redraws)
+static int  bx=0,by=0,bw=0,bh=0;   
+static int  cx=0,cy=0,cw=0;        
 static int  rAccessX=0, rAccessY=0, rAccessW=0, rAccessH=0;
 static int  rIfaceX =0, rIfaceY =0, rIfaceW =0, rIfaceH =0;
 static int  rTrafficX=0, rTrafficY=0, rTrafficW=0, rTrafficH=0;
-
-// Traffic counters & rolling rates
 static uint64_t   sULTotal  = 0;
 static uint64_t   sDLTotal  = 0;
 static uint64_t   sLastUL   = 0;
@@ -62,11 +44,7 @@ static uint64_t   sLastDL   = 0;
 static uint32_t   sLastRateMs = 0;
 static float      sULRateBps = 0.0f;
 static float      sDLRateBps = 0.0f;
-
-// Last-drawn strings (to avoid full redraws)
 static String L_mode, L_url, L_ip, L_dlRate, L_ulRate, L_dlTot, L_ulTot, L_join;
-
-// ── Small UI helpers (device) ─────────────────────────────────────────────
 static void applySmallUi(TFT_eSPI& tft){
   tft.setTextFont(1);
   tft.setTextSize(1);
@@ -94,17 +72,16 @@ static String humanRate(float bps){
   return String(buf);
 }
 
-// Only update rate numbers (no full-screen invalidation)
 static void updateRates(){
   uint32_t now = millis();
   uint32_t dt = now - sLastRateMs;
-  if (dt < 600) return; // throttle
+  if (dt < 600) return; 
   float dt_s = dt / 1000.0f;
   uint64_t dUL = sULTotal - sLastUL;
   uint64_t dDL = sDLTotal - sLastDL;
   float instUL = dUL / dt_s;
   float instDL = dDL / dt_s;
-  const float a = 0.35f;  // smoothing
+  const float a = 0.35f;  
   sULRateBps = a*instUL + (1-a)*sULRateBps;
   sDLRateBps = a*instDL + (1-a)*sDLRateBps;
   sLastUL = sULTotal;
@@ -113,10 +90,6 @@ static void updateRates(){
 }
 
 static void markReq(){ sLastReqMs = millis(); }
-
-// ───────────────────────────────────────────────────────────────────────────────
-// Web UI (clean infiltra vibe, refined)
-// ───────────────────────────────────────────────────────────────────────────────
 static const char* kIndexHTML PROGMEM = R"HTML(
 <!doctype html><html lang="en"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -181,7 +154,7 @@ pre.path{margin:0;padding:6px 8px;background:#0b1016;border:1px solid var(--edge
     <div class="card">
       <div class="kv">
         <b>Interface</b><span id="ifcMode">AP</span>
-        <b>URL</b><span id="ifcUrl">http://192.168.4.1/</span>
+        <b>URL</b><span id="ifcUrl">http:
         <b>IP</b><span id="ifcIp">192.168.4.1</span>
         <b>Status</b><span id="ifcStatus"><span style="color:var(--ok)">●</span> ready</span>
         <b>Traffic</b><span><span id="dl">0 B/s</span> ↓ &nbsp; <span id="ul">0 B/s</span> ↑</span>
@@ -216,12 +189,12 @@ pre.path{margin:0;padding:6px 8px;background:#0b1016;border:1px solid var(--edge
       <button class="pri" onclick="saveEdit()">Save</button>
       <button class="warn" onclick="delFromEdit()">Delete</button>
     </div>
-    <textarea id="editor" placeholder="// edit text files in /integrated" style="width:100%;min-height:220px"></textarea>
+    <textarea id="editor" placeholder="
   </div>
 
 </div>
 <script>
-let CURR="/integrated/"; // writable scope
+let CURR="/integrated/"; 
 
 function crumb(p){
   const parts=p.replace(/\/+/g,'/').split('/').filter(Boolean);
@@ -323,16 +296,13 @@ async function pullStats(){
     document.getElementById('dlT').textContent     = s.dl_total;
     document.getElementById('ulT').textContent     = s.ul_total;
   }catch(e){}
-  setTimeout(pullStats, 1200); // gentler
+  setTimeout(pullStats, 1200); 
 }
 refresh(); pullStats();
 </script>
 </body></html>
 )HTML";
 
-// ───────────────────────────────────────────────────────────────────────────────
-// JSON list utils
-// ───────────────────────────────────────────────────────────────────────────────
 static bool listDirJSON_fs(fs::FS &fs, const String& abs, String& out){
   fs::File root = fs.open(abs);
   if(!root || !root.isDirectory()) return false;
@@ -358,7 +328,6 @@ static bool listDirJSON_fs(fs::FS &fs, const String& abs, String& out){
   return true;
 }
 
-// Minimal virtual “/main” tree (read-only) for web listing
 struct VNode { const char* name; bool dir; const int8_t* kids; uint8_t kidCount; };
 enum : int8_t { V_ROOT=0,V_SRC,V_MAIN_CPP,V_MODULES,V_UI,V_COUNT };
 static const int8_t VK_ROOT[]={ V_SRC,V_MODULES,V_UI };
@@ -409,11 +378,7 @@ static String listRootJSON(){
          "]";
 }
 
-// ───────────────────────────────────────────────────────────────────────────────
-// HTTP handlers (+ mkdir + stats)
-// ───────────────────────────────────────────────────────────────────────────────
 static fs::File sUpFile;
-
 static String contentTypeFor(const String& path) {
   String p = path; p.toLowerCase();
   if (p.endsWith(".html")||p.endsWith(".htm")) return "text/html";
@@ -428,16 +393,16 @@ static String contentTypeFor(const String& path) {
 }
 static void ensureDir(const String& path){ SPIFFS.mkdir(path); }
 static String normDir(String p){
-  if (!p.startsWith("/")) p="/"+p; p.replace("//","/"); if (!p.endsWith("/")) p+="/"; return p;
+  if (!p.startsWith("/")) p = "/" + p;
+  p.replace("\\", "/");
+  return p;
 }
 
 static void handleIndex(){ markReq(); sSrv->send_P(200,"text/html",kIndexHTML); sDLTotal += strlen_P(kIndexHTML); }
-
 static void handleList(){
   markReq();
   String p = sSrv->arg("path"); if (!p.length()) p="/";
-  p.replace("//","/");
-
+  p.replace("\\", "/");
   if (p == "/" || p == ""){ String out=listRootJSON(); sSrv->send(200,"application/json",out); sDLTotal+=out.length(); return; }
   if (p.startsWith(kMainRoot)){ String out; if(!listDirJSON_main(p,out)) out="[]"; sSrv->send(200,"application/json",out); sDLTotal+=out.length(); return; }
   if (p.startsWith(kWriteRoot)){ String out; ensureDir(kWriteRoot); if(!listDirJSON_fs(SPIFFS,p,out)) out="[]"; sSrv->send(200,"application/json",out); sDLTotal+=out.length(); return; }
@@ -459,16 +424,13 @@ static void handlePut(){
   String p=sSrv->arg("path"); String c=sSrv->arg("content");
   if(!p.length()){ sSrv->send(400,"text/plain","missing path"); sDLTotal+=12; return; }
   if (p.startsWith(kMainRoot)){ sSrv->send(403,"text/plain","read-only: infiltra main"); sDLTotal+=24; return; }
-
   if (!p.startsWith(kWriteRoot)) p = String(kWriteRoot) + (p.startsWith("/")?p:("/"+p));
   int slash=p.lastIndexOf('/'); if(slash>0) ensureDir(p.substring(0,slash));
   sULTotal += p.length() + c.length();
-
   fs::File f=SPIFFS.open(p,"w");
   if(!f){ sSrv->send(500,"text/plain","write fail"); sDLTotal+=10; return; }
   if (c.length()) f.print(c);
   f.close();
-
   sSrv->send(200,"text/plain","ok"); sDLTotal+=2;
 }
 
@@ -525,8 +487,8 @@ static void handleUpload(){
 }
 
 static void handleStats(){
-  String urlSta = sHasSta ? ("http://" + ipToStr(sStaIp) + "/") : "-";
-  String urlAp  = "http://" + ipToStr(sApIp) + "/";
+  String urlSta = sHasSta ? ("http://" + ipToStr(sStaIp)) : "";
+  String urlAp  = "http://" + ipToStr(sApIp);
   String urlShown = (sShowSta && sHasSta) ? urlSta : urlAp;
   String ipShown  = (sShowSta && sHasSta) ? ipToStr(sStaIp) : ipToStr(sApIp);
   String mode     = (sShowSta && sHasSta) ? "STA" : "AP";
@@ -537,18 +499,12 @@ static void handleStats(){
 }
 
 static void handleNotFound(){ markReq(); sSrv->send_P(200,"text/html",kIndexHTML); sDLTotal += strlen_P(kIndexHTML); }
-
-// ───────────────────────────────────────────────────────────────────────────────
-// AP + DNS + server
-// ───────────────────────────────────────────────────────────────────────────────
 static bool startAPWithCandidates(){
   IPAddress candidates[] = { IPAddress(192,168,4,1), IPAddress(10,1,1,1), IPAddress(172,16,4,1) };
   bool ok=false;
-
   uint64_t mac = ESP.getEfuseMac();
   char suf[7]; snprintf(suf,sizeof(suf),"%06X",(unsigned int)(mac & 0xFFFFFF));
   sApSsid = "Infiltra-" + String(suf);
-
   for (auto ip : candidates) {
     WiFi.softAPdisconnect(true); delay(50);
     WiFi.softAPConfig(ip, ip, IPAddress(255,255,255,0));
@@ -562,11 +518,9 @@ static bool startAPWithCandidates(){
 }
 static void startDNS(){ if(!sDns) sDns = new DNSServer(); sDns->start(DNS_PORT, "*", sApIp); }
 static void startServer(){
-  if (!SPIFFS.begin(true)) { /* continue; handlers will 500 */ }
+  if (!SPIFFS.begin(true)) { }
   if (!SPIFFS.exists(kWriteRoot)) SPIFFS.mkdir(kWriteRoot);
-
   if (!sSrv) sSrv = new WebServer(sPort);
-
   sSrv->on("/",            HTTP_GET,  handleIndex);
   sSrv->on("/api/list",    HTTP_GET,  handleList);
   sSrv->on("/api/get",     HTTP_GET,  handleGet);
@@ -577,7 +531,6 @@ static void startServer(){
   sSrv->on("/upload",      HTTP_POST, [](){ sSrv->send(200,"text/plain","ok"); sDLTotal+=2; }, handleUpload);
   sSrv->on("/api/stats",   HTTP_GET,  handleStats);
   sSrv->onNotFound(handleNotFound);
-
   sSrv->begin();
   sRunning = true;
 }
@@ -589,24 +542,16 @@ void webFilesStop(){
   sRunning = false;
 }
 
-// ───────────────────────────────────────────────────────────────────────────────
-// Device UI — flicker-free, partial updates only
-// ───────────────────────────────────────────────────────────────────────────────
 static void drawFrame(TFT_eSPI& tft){
   tft.setRotation(ROT_TOP);
   drawOptionsLayerBackground(tft);
   tft.setRotation(ROT_ALT);
-
   applySmallUi(tft);
-
   W=tft.width(); H=tft.height();
   int marginX = 6, marginTop=8, marginBottom=4;
   bx = marginX; by = marginTop + 8; bw = W - marginX*2; bh = H - by - marginBottom;
-
-  // outer
   tft.fillRoundRect(bx, by, bw, bh, 6, TFT_BLACK);
   tft.drawRoundRect(bx, by, bw, bh, 6, TFT_DARKGREY);
-
   cx = bx+6; cy = by+6; cw = bw-12;
 }
 
@@ -625,7 +570,6 @@ static void kv(TFT_eSPI& tft, int x, int y, const char* k, const String& v, int 
   tft.print(fitText(tft, v, vw));
 }
 
-// Update helpers (erase just a small strip then print)
 static void kvUpdate(TFT_eSPI& tft, int x, int y, const char* k, String& last, const String& now, int w){
   if (now == last) return;
   int vx = x + 52; int vw = w - (vx - x) - 6;
@@ -643,9 +587,7 @@ void webFilesReset(){
   sULRateBps = sDLRateBps = 0.0f;
   sLastRateMs = millis();
   L_mode=L_url=L_ip=L_dlRate=L_ulRate=L_dlTot=L_ulTot=L_join="";
-
   WiFi.mode(WIFI_AP_STA);
-
   if (!startAPWithCandidates()){
     WiFi.softAPdisconnect(true); delay(50);
     WiFi.softAPConfig(IPAddress(192,168,4,1), IPAddress(192,168,4,1), IPAddress(255,255,255,0));
@@ -655,34 +597,23 @@ void webFilesReset(){
     sApSsid = "Infiltra";
   }
   startDNS();
-
   sHasSta = (WiFi.status() == WL_CONNECTED);
   if (sHasSta) sStaIp = WiFi.localIP();
-
   startServer();
 }
 
 void webFilesDrawScreen(TFT_eSPI& tft){
   if (!sFrameDrawn){ drawFrame(tft); sFrameDrawn=true; sDirty=true; }
-
   if (!sRunning) { startServer(); sDirty=true; }
-
-  // Serve requests
   if (sSrv) sSrv->handleClient();
   if (sDns) sDns->processNextRequest();
-
   updateRates();
   applySmallUi(tft);
-
-  // On first structural draw, lay out cards once
   if (!sStaticDrawn || sDirty){
-    // Title + activity dot area
     tft.fillRect(bx+2, by+2, bw-4, 14, TFT_BLACK);
     tft.setCursor(cx, cy);
     tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.print("Web Files");
-    tft.drawCircle(bx + bw - 12, by + 8, 2, TFT_DARKGREY);
-
-    // Compute heights (no overlap)
+    tft.drawCircle(bx + bw - 12, by + 8, 2, TFT_DARKGREY);   
     int y = cy + 10;
     int footerH = 14;
     int contentBottom = by + bh - footerH - 4;
@@ -695,57 +626,39 @@ void webFilesDrawScreen(TFT_eSPI& tft){
       int d2=min(over, 8); c2h -= d2; over-=d2;
       int d3=min(over, 6); c3h -= d3; over-=d3;
       if (c1h<24) c1h=24; if (c2h<34) c2h=34; if (c3h<22) c3h=22;
-    }
-
-    // Access card
+    }   
     rAccessX=cx-2; rAccessY=y; rAccessW=cw+4; rAccessH=c1h;
     card(tft, rAccessX, rAccessY, rAccessW, rAccessH, "Access");
     y += c1h + 4;
-
-    // Interfaces card
     rIfaceX=cx-2; rIfaceY=y; rIfaceW=cw+4; rIfaceH=c2h;
     card(tft, rIfaceX, rIfaceY, rIfaceW, rIfaceH, "Interfaces");
     y += c2h + 4;
-
-    // Traffic card
     rTrafficX=cx-2; rTrafficY=y; rTrafficW=cw+4; rTrafficH=c3h;
     card(tft, rTrafficX, rTrafficY, rTrafficW, rTrafficH, "Traffic");
-
-    // Footer (static)
     tft.fillRect(cx, by + bh - footerH, cw, footerH, TFT_BLACK);
     tft.setCursor(cx, by + bh - footerH);
     tft.setTextColor(TFT_SILVER, TFT_BLACK);
     tft.print("A: toggle interface   C: back");
-
     sStaticDrawn = true;
     sDirty = false;
-
-    // Prime full values
     L_mode=L_url=L_ip=L_dlRate=L_ulRate=L_dlTot=L_ulTot=L_join="";
   }
 
-  // Small activity dot (only this tiny region)
   bool flash = (millis() - sLastReqMs) < 550;
   uint16_t dotCol = flash ? TFT_GREEN : TFT_DARKGREY;
   tft.fillCircle(bx + bw - 12, by + 8, 2, dotCol);
-
-  // Build current values
-  String urlSta = sHasSta ? ("http://" + ipToStr(sStaIp) + "/") : "-";
-  String urlAp  = "http://" + ipToStr(sApIp) + "/";
+  String urlSta = sHasSta ? ("http://" + ipToStr(sStaIp)) : "";
+  String urlAp  = "http://" + ipToStr(sApIp);
   String urlShown = (sShowSta && sHasSta) ? urlSta : urlAp;
   String ipShown  = (sShowSta && sHasSta) ? ipToStr(sStaIp) : ipToStr(sApIp);
   String mode     = (sShowSta && sHasSta) ? "STA" : "AP";
   String join     = sApSsid + (sApPass.length()? " (pwd)" : " (open)");
-
   String dlR=humanRate(sDLRateBps), ulR=humanRate(sULRateBps);
   String dlT=humanBytes(sDLTotal) , ulT=humanBytes(sULTotal);
 
-  // Access card content (only change values)
   {
     int x = rAccessX+6, y = rAccessY+18, w = rAccessW-12;
-    // JOIN and AP URL
     if (join != L_join){
-      // erase lines area
       tft.fillRect(x+52, y-1, w-52, 20, TFT_BLACK);
       kv(tft, x, y, "Join",  join, w); y+=10;
       kv(tft, x, y, "Open",  urlAp + "  (no port)", w);
@@ -753,7 +666,6 @@ void webFilesDrawScreen(TFT_eSPI& tft){
     }
   }
 
-  // Interfaces card content (update only when changed)
   {
     int x = rIfaceX+6, y = rIfaceY+18, w = rIfaceW-12;
     kvUpdate(tft, x, y,   "URL",  L_url,  urlShown, w); y+=10;
@@ -761,27 +673,24 @@ void webFilesDrawScreen(TFT_eSPI& tft){
     kvUpdate(tft, x, y,   "Mode", L_mode, (mode + "  (A toggles)"), w);
   }
 
-  // Traffic card content (tight partial updates)
   {
     int x = rTrafficX+6, y = rTrafficY+18, w = rTrafficW-12;
     kvUpdate(tft, x, y,   "DL",   L_dlRate, (dlR + "  (" + dlT + ")"), w); y+=10;
     kvUpdate(tft, x, y,   "UL",   L_ulRate, (ulR + "  (" + ulT + ")"), w);
-    L_dlTot = dlT; L_ulTot = ulT; // totals embedded, no separate labels
+    L_dlTot = dlT; L_ulTot = ulT; 
   }
 
-  // Interface change detection (forces only the 3 kv rows redraw)
   bool nowSta = (WiFi.status() == WL_CONNECTED);
   if (nowSta != sHasSta || (nowSta && WiFi.localIP() != sStaIp)) {
     sHasSta = nowSta; if (sHasSta) sStaIp = WiFi.localIP();
-    // wipe iface rows area and redraw once
     int x=rIfaceX+6, y=rIfaceY+18, w=rIfaceW-12;
     tft.fillRect(x, y-1, w, 32, TFT_BLACK);
-    L_mode=L_url=L_ip=""; // force updates next loop
+    L_mode=L_url=L_ip=""; 
   }
 }
 
 void webFilesHandleInput(bool a, bool b, bool c, bool& requestExit){
   requestExit = false;
   if (c) { requestExit = true; return; }
-  if (a && sHasSta) { sShowSta = !sShowSta; L_mode=L_url=L_ip=""; } // force kv update only
+  if (a && sHasSta) { sShowSta = !sShowSta; L_mode=L_url=L_ip=""; } 
 }

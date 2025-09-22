@@ -8,10 +8,8 @@
   #include <M5StickCPlus2.h>
   #define ROT_TOP 2
 #elif defined(M5STICK_C_PLUS_1_1)
-  // no M5* headers here
   #define ROT_TOP 2
 #else
-  // fallback like Plus 2 if nothing defined
   #include <M5StickCPlus2.h>
   #define ROT_TOP 2
 #endif
@@ -32,8 +30,8 @@
 #include "././Modules/Functions/ble_scan.h"
 #include "././Modules/Functions/ble_google_adv.h"
 #include "././Modules/Core/Passlock.h"
+#include "././Modules/Functions/InfiChat.h"
 
-// -------- Pin defaults (overridden by board JSON) ----------
 #ifndef BTN_A_PIN
 #define BTN_A_PIN 37
 #endif
@@ -43,7 +41,6 @@
 #ifndef BTN_C_PIN
 #define BTN_C_PIN 35
 #endif
-
 #if defined(M5CARDPUTER)
 #ifndef KEY_ENTER
 #define KEY_ENTER 0x28
@@ -59,7 +56,6 @@
 #endif
 #endif
 
-// ------------- edge/feature state --------------
 static bool sAEdge=false, sBEdge=false, sCEdge=false, sExitEdge=false;
 static bool sInBLEScan      = false;
 static bool sInBLEGoogleAdv = false;
@@ -67,98 +63,73 @@ static bool sInBrightness   = false;
 static bool sInIntegrated   = false;
 static bool sInRpiInfo      = false;
 static bool sInWebFiles     = false;
+static bool sInInfiChat = false;
 
-// ------------- init ----------------------------
 void initButtons() {
 #if defined(M5CARDPUTER)
-  // Keyboard handled in update()
 #elif defined(M5STICK_C_PLUS_2)
-  // Plus 2 uses M5 button objects (A/B). C is a raw GPIO if defined.
-  // M5.begin() done in main.cpp
   if (BTN_C_PIN >= 0) pinMode(BTN_C_PIN, INPUT_PULLUP);
 #elif defined(M5STICK_C_PLUS_1_1)
-  // StickC Plus 1.1 uses RAW GPIO buttons only
   pinMode(BTN_A_PIN, INPUT_PULLUP);
   pinMode(BTN_B_PIN, INPUT_PULLUP);
-  if (BTN_C_PIN >= 0) pinMode(BTN_C_PIN, INPUT_PULLUP); // your JSON sets 0
+  if (BTN_C_PIN >= 0) pinMode(BTN_C_PIN, INPUT_PULLUP); 
 #else
-  // Fallback like Plus 2
   if (BTN_C_PIN >= 0) pinMode(BTN_C_PIN, INPUT_PULLUP);
 #endif
 }
 
-// ------------- per-frame update ----------------
 void updateButtons() {
 #if defined(M5CARDPUTER)
-  // Map Cardputer keys to A/B/C/Exit
   M5Cardputer.update();
   static bool lastARaw=false, lastBRaw=false, lastCRaw=false, lastExitRaw=false;
-
   bool aRaw =
       M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER) ||
       M5Cardputer.Keyboard.isKeyPressed('\r');
-
   bool bRaw =
       M5Cardputer.Keyboard.isKeyPressed(';') ||
       M5Cardputer.Keyboard.isKeyPressed(KEY_SEMICOLON);
-
   bool cRaw =
       M5Cardputer.Keyboard.isKeyPressed('.') ||
       M5Cardputer.Keyboard.isKeyPressed(KEY_DOT);
-
   bool exitRaw =
       M5Cardputer.Keyboard.isKeyPressed('`') ||
       M5Cardputer.Keyboard.isKeyPressed(KEY_BACKTICK);
-
   sAEdge    = aRaw   && !lastARaw;
   sBEdge    = bRaw   && !lastBRaw;
   sCEdge    = cRaw   && !lastCRaw;
   sExitEdge = exitRaw&& !lastExitRaw;
-
   lastARaw = aRaw;
   lastBRaw = bRaw;
   lastCRaw = cRaw;
   lastExitRaw = exitRaw;
-
 #elif defined(M5STICK_C_PLUS_2)
-  // Use M5 BtnA/BtnB, C from raw GPIO if present
   M5.update();
   sAEdge = M5.BtnA.wasPressed();
   sBEdge = M5.BtnB.wasPressed();
-
   static bool lastCRaw=false;
-  bool cRaw = (BTN_C_PIN >= 0) ? !digitalRead(BTN_C_PIN) : false; // active LOW
+  bool cRaw = (BTN_C_PIN >= 0) ? !digitalRead(BTN_C_PIN) : false; 
   sCEdge = cRaw && !lastCRaw;
   lastCRaw = cRaw;
-
   sExitEdge = false;
-
 #elif defined(M5STICK_C_PLUS_1_1)
-  // Pure raw GPIO on StickC Plus 1.1 (active LOW)
   static bool lastA=false, lastB=false, lastC=false;
-
   bool a = !digitalRead(BTN_A_PIN);
   bool b = !digitalRead(BTN_B_PIN);
   bool c = (BTN_C_PIN >= 0) ? !digitalRead(BTN_C_PIN) : false;
-
   sAEdge = a && !lastA;
   sBEdge = b && !lastB;
   sCEdge = c && !lastC;
-
   lastA = a; lastB = b; lastC = c;
   sExitEdge = false;
-
 #else
-  // Fallback like Plus 2
+  
   M5.update();
   sAEdge = M5.BtnA.wasPressed();
   sBEdge = M5.BtnB.wasPressed();
-
   static bool lastCRaw=false;
   bool cRaw = (BTN_C_PIN >= 0) ? !digitalRead(BTN_C_PIN) : false;
   sCEdge = cRaw && !lastCRaw;
   lastCRaw = cRaw;
-
   sExitEdge = false;
 #endif
 }
@@ -169,7 +140,6 @@ bool btnCPressed(){ return sCEdge; }
 static bool btnExitSpecialPressed(){ return sExitEdge; }
 void finalizeButtons() { }
 
-// --------------------- helpers -----------------------
 static String norm(String s){
   s.toLowerCase();
   String r; r.reserve(s.length());
@@ -228,7 +198,24 @@ static bool labelIsPasslock(const String& label){
   return (n.indexOf("passlock")>=0 || n.indexOf("passkey")>=0 || n.indexOf("password")>=0);
 }
 
-// ---------------- submenu dispatcher -----------------
+static bool labelIsInfiChat(const String& label){
+  String n = norm(label);
+  if (n.indexOf("infichat")>=0) return true;
+  if (n.indexOf("chat")>=0)     return true;
+  return false;
+}
+
+static void openInfiChatFromHere(TFT_eSPI* tft) {
+  
+  tft->fillScreen(TFT_BLACK);
+#if defined(M5CARDPUTER)
+  drawOptionsLayerBackground(*tft);
+#endif
+  infiChatReset();
+  infiChatDrawScreen(*tft);
+  sInInfiChat = true;
+}
+
 static void handleSubmenuAction(
   MenuState currentMenu,
   int idx,
@@ -240,6 +227,14 @@ static void handleSubmenuAction(
   bool& inWiFiScan,
   bool& inPacketScan
 ) {
+  
+  if (idx > 0) {
+    String label = getSubmenuOptionText();
+    if (labelIsInfiChat(label)) {
+      openInfiChatFromHere(tft);
+      return;
+    }
+  }
 
   if (currentMenu == EXTRAS_SUBMENU && idx == 1) {
     resetStopwatch();
@@ -336,7 +331,6 @@ static void handleSubmenuAction(
   inOptionScreen = true;
 }
 
-// ---------------- main input router -------------------
 void handleAllButtonLogic(
   TFT_eSPI* tft,
   bool& inOptionScreen,
@@ -348,6 +342,32 @@ void handleAllButtonLogic(
   MenuState& currentMenu
 ) {
   unsigned long now = millis();
+
+  if (sInInfiChat) {
+    bool exitReq = false;
+#if defined(M5CARDPUTER)
+    infiChatHandleInput(btnAPressed(), btnBPressed(),
+                        btnCPressed() || btnExitSpecialPressed(), exitReq);
+#else
+    infiChatHandleInput(btnAPressed(), btnBPressed(), btnCPressed(), exitReq);
+#endif
+    if (exitReq) {
+      sInInfiChat = false;
+      infiChatStop();
+      tft->fillScreen(TFT_BLACK);
+      tft->setRotation(ROT_TOP);
+#if defined(M5CARDPUTER)
+      drawOptionsLayerBackground(*tft);
+#endif
+      
+      drawExtrasSubmenu();
+      delay(20);
+      return;
+    }
+    infiChatDrawScreen(*tft);
+    delay(20);
+    return;
+  }
 
   if (sInBLEGoogleAdv) {
     bool exitReq = false;
@@ -644,7 +664,7 @@ void handleAllButtonLogic(
 
   if (!inOptionScreen && !inStopwatch && !inIRRead && !inBGone &&
       !inWiFiScan && !inPacketScan && !sInBLEScan && !sInBLEGoogleAdv &&
-      !sInBrightness && !sInIntegrated && !sInRpiInfo && !sInWebFiles) {
+      !sInBrightness && !sInIntegrated && !sInRpiInfo && !sInWebFiles && !sInInfiChat) {
     switch(currentMenu) {
       case WIFI_SUBMENU: case BLUETOOTH_SUBMENU: case IR_SUBMENU:
       case RF_SUBMENU: case NRF_SUBMENU: case RADIO_SUBMENU:
@@ -687,7 +707,7 @@ void handleAllButtonLogic(
   static unsigned long last = 0;
   if (!inOptionScreen && !inStopwatch && !inIRRead && !inBGone &&
       !inWiFiScan && !inPacketScan && !sInBLEScan && !sInBLEGoogleAdv &&
-      !sInBrightness && !sInIntegrated && !sInRpiInfo && !sInWebFiles) {
+      !sInBrightness && !sInIntegrated && !sInRpiInfo && !sInWebFiles && !sInInfiChat) {
     if (now - last > 80) {
       if (btnBPressed()) {
         last = now;
@@ -715,7 +735,7 @@ void handleAllButtonLogic(
           case WIFI_MENU:        currentMenu=BLUETOOTH_MENU;   drawBluetoothMenu();  break;
           case BLUETOOTH_MENU:   currentMenu=IR_MENU;          drawIRMenu();         break;
           case IR_MENU:          currentMenu=RF_MENU;          drawRFMenu();         break;
-          case RF_MENU:          currentMenu=NRF_MENU;          drawNRFMenu();        break;
+          case RF_MENU:          currentMenu=NRF_MENU;         drawNRFMenu();        break;
           case NRF_MENU:         currentMenu=RADIO_MENU;       drawRadioMenu();      break;
           case RADIO_MENU:       currentMenu=GPS_MENU;         drawGPSMenu();        break;
           case GPS_MENU:         currentMenu=RPI_MENU;         drawRPIMenu();        break;
@@ -734,7 +754,7 @@ void handleAllButtonLogic(
 
   if (!inOptionScreen && !inStopwatch && !inIRRead && !inBGone &&
       !inWiFiScan && !inPacketScan && !sInBLEScan && !sInBLEGoogleAdv &&
-      !sInBrightness && !sInIntegrated && !sInRpiInfo && !sInWebFiles && btnAPressed()) {
+      !sInBrightness && !sInIntegrated && !sInRpiInfo && !sInWebFiles && !sInInfiChat && btnAPressed()) {
     tft->fillScreen(TFT_BLACK);
     tft->setRotation(ROT_TOP);
 #if defined(M5CARDPUTER)
@@ -760,7 +780,6 @@ void handleAllButtonLogic(
   }
 }
 
-// ------------- Passlock hook ---------------
 extern "C" int passlock_button_read_blocking() {
   for (;;) {
     updateButtons();

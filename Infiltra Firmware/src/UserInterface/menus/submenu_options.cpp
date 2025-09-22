@@ -35,7 +35,7 @@ static const String settingsEntries[] = {
   "<- Back", "Theme", "Brightness", "Passlock", "Audio", "Volume", "Time", "Bat Saver", "Config Pins"
 };
 static const String extrasEntries[] = {
-  "<- Back", "Stopwatch", "Mic Spect", "Creds", "Schematics"
+  "<- Back", "Stopwatch", "InfiChat", "Creds", "Schematics"
 };
 static const String filesEntries[] = {
   "<- Back", "Micro Sd", "Integrated", "Format Sd", "Web Files"

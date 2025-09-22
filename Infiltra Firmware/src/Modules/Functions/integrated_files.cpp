@@ -1,5 +1,5 @@
 #include "integrated_files.h"
-#include "../../UserInterface/menus/menu_submenus.h"  // drawOptionsLayerBackground
+#include "../../UserInterface/menus/menu_submenus.h"  
 #include <Arduino.h>
 #include <SPIFFS.h>
 #include <FS.h>
@@ -7,22 +7,15 @@
 extern "C" {
   #include "esp_ota_ops.h"
 }
-
 #if defined(M5CARDPUTER)
   static constexpr uint8_t ROT_TOP = 4;
 #else
   static constexpr uint8_t ROT_TOP = 2;
 #endif
 static constexpr uint8_t ROT_ALT = (ROT_TOP + 1) & 0x3;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Read-only baked tree (static) + dynamic (/integrated)
-// ─────────────────────────────────────────────────────────────────────────────
 struct IFNode { const char* name; bool isDir; const int16_t* kids; uint8_t kidCount; };
-
 enum : int16_t {
   N_ROOT = 0, N_SRC, N_MAIN_CPP,
-
   N_MODULES, N_CORE, N_CORE_BUTTONS_CPP, N_CORE_BUTTONS_H,
   N_FUNCS,
   N_BGONE_CPP, N_BGONE_H,
@@ -33,13 +26,11 @@ enum : int16_t {
   N_PACKET_SCAN_CPP, N_PACKET_SCAN_H,
   N_STOPWATCH_CPP, N_STOPWATCH_H,
   N_WIFI_SCAN_CPP, N_WIFI_SCAN_H,
-
   N_UI, N_UI_BITMAPS, N_UI_MENUS,
   N_MENU_BITMAPS_CPP, N_MENU_BITMAPS_H,
   N_MENU_SUBMENUS_CPP, N_MENU_SUBMENUS_H,
   N_SUBMENU_OPTIONS_CPP, N_SUBMENU_OPTIONS_H,
   N_MENU_ENUMS_H,
-
   N__COUNT
 };
 
@@ -60,17 +51,14 @@ static const int16_t K_FUNCS[]   = {
 static const int16_t K_UI[]         = { N_UI_BITMAPS, N_UI_MENUS };
 static const int16_t K_UI_BITMAPS[] = { N_MENU_BITMAPS_CPP, N_MENU_BITMAPS_H };
 static const int16_t K_UI_MENUS[]   = { N_MENU_SUBMENUS_CPP, N_MENU_SUBMENUS_H, N_SUBMENU_OPTIONS_CPP, N_SUBMENU_OPTIONS_H, N_MENU_ENUMS_H };
-
 static const IFNode NODES[N__COUNT] = {
   { "Infiltra Main", true,  K_ROOT,    (uint8_t)(sizeof(K_ROOT)/2) },
   { "src",           true,  K_SRC,     (uint8_t)(sizeof(K_SRC)/2) },
   { "main.cpp",      false, nullptr,   0 },
-
   { "Modules",       true,  K_MODULES, (uint8_t)(sizeof(K_MODULES)/2) },
   { "Core",          true,  K_CORE,    (uint8_t)(sizeof(K_CORE)/2) },
   { "buttons.cpp",   false, nullptr, 0 },
   { "buttons.h",     false, nullptr, 0 },
-
   { "Functions",     true,  K_FUNCS,   (uint8_t)(sizeof(K_FUNCS)/2) },
   { "bgone.cpp",         false, nullptr, 0 }, { "bgone.h",         false, nullptr, 0 },
   { "ble_scan.cpp",      false, nullptr, 0 }, { "ble_scan.h",      false, nullptr, 0 },
@@ -80,7 +68,6 @@ static const IFNode NODES[N__COUNT] = {
   { "packet_scan.cpp",   false, nullptr, 0 }, { "packet_scan.h",   false, nullptr, 0 },
   { "stopwatch.cpp",     false, nullptr, 0 }, { "stopwatch.h",     false, nullptr, 0 },
   { "wifi_scan.cpp",     false, nullptr, 0 }, { "wifi_scan.h",     false, nullptr, 0 },
-
   { "UserInterface", true,  K_UI,           (uint8_t)(sizeof(K_UI)/2) },
   { "bitmaps",       true,  K_UI_BITMAPS,   (uint8_t)(sizeof(K_UI_BITMAPS)/2) },
   { "menus",         true,  K_UI_MENUS,     (uint8_t)(sizeof(K_UI_MENUS)/2) },
@@ -90,42 +77,26 @@ static const IFNode NODES[N__COUNT] = {
   { "menu_enums.h",       false, nullptr, 0 },
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// UI state
-// ─────────────────────────────────────────────────────────────────────────────
 enum class Mode : uint8_t { ROOT, BROWSE };
-
 static Mode   sMode        = Mode::ROOT;
-static int    sSel         = 2;     // ROOT: 0 "<- Back", 1 "+ Add", 2 "Infiltra Main"
+static int    sSel         = 2;     
 static int    sPageStart   = 0;
 static int16_t sStack[12];
 static int     sDepth      = 0;
 static int16_t sCur        = N_ROOT;
-
-// dynamic FS browsing under /integrated
 static bool   sDynMode     = false;
-static String sDynPath     = "/integrated";   // current FS folder when sDynMode
-
-// open-web request flag
+static String sDynPath     = "/integrated";   
 static bool   sOpenWebReq  = false;
-
 static bool    sFrameDrawn = false;
 static bool    sDirty      = true;
-
 static unsigned long sMsgUntil = 0;
 static String        sMsgText;
 static bool          sMsgWasActive = false;
-
-// card metrics
 static int W=0, H=0;
-static int bx=0, by=0, bw=0, bh=0;  // outer card
-static int cx=0, cy=0, cw=0;        // content area
-
-// 2-column split
-static int lx=0, lw=0;              // left storage panel
-static int rx=0, rw=0;              // right directory panel
-
-// palette
+static int bx=0, by=0, bw=0, bh=0;  
+static int cx=0, cy=0, cw=0;        
+static int lx=0, lw=0;              
+static int rx=0, rw=0;              
 static constexpr uint16_t C_FRAME     = TFT_DARKGREY;
 static constexpr uint16_t C_FRAME_IN  = TFT_BLACK;
 static constexpr uint16_t C_TEXT      = TFT_WHITE;
@@ -138,10 +109,6 @@ static constexpr uint16_t C_WARN_BG   = 0xA2A0;
 static constexpr uint16_t C_WARN_TXT  = TFT_WHITE;
 static constexpr uint16_t C_SLIDER_TR = 0x03A0;
 static constexpr uint16_t C_SLIDER_FI = 0x07E0;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Storage info
-// ─────────────────────────────────────────────────────────────────────────────
 static uint32_t getAppCapacity(){
   const esp_partition_t* p = esp_ota_get_running_partition();
   return p ? p->size : 0;
@@ -161,53 +128,34 @@ static String fmtMBPrec(uint32_t b, uint8_t prec){
   return String(buf);
 }
 static String fmtMBInt(uint32_t b){ uint32_t mb=(b+524288)/1048576; return String(mb)+"MB"; }
-
-// message helpers
 static inline bool msgActiveNow(){ return sMsgUntil && (long)(sMsgUntil - millis()) > 0; }
 static void msg(const String& m, uint16_t ms=2000){ sMsgText=m; sMsgUntil=millis()+ms; sDirty=true; }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Layout & static frame
-// ─────────────────────────────────────────────────────────────────────────────
 static void drawStaticFrame(TFT_eSPI& tft){
   tft.setRotation(ROT_TOP);
   drawOptionsLayerBackground(tft);
   tft.setRotation(ROT_ALT);
-
   tft.setTextSize(1);
   W = tft.width(); H = tft.height();
-
   const int marginX = 10, marginTop = 16, marginBottom = 8;
-
   bx = marginX; by = marginTop + 12; bw = W - marginX*2; bh = H - by - marginBottom;
-
   tft.drawRoundRect(bx, by, bw, bh, 8, C_FRAME);
   tft.drawRoundRect(bx+1, by+1, bw-2, bh-2, 7, C_FRAME_IN);
   tft.fillRect(bx+2, by+2, bw-4, bh-4, TFT_BLACK);
-
   cx = bx + 8; cy = by + 6; cw = bw - 16;
-
   lw = 90; lx = cx;
   rx = lx + lw + 6; rw = cw - lw - 6;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Left panel
-// ─────────────────────────────────────────────────────────────────────────────
 static void drawFittingStorageText(TFT_eSPI& tft, int sx, int sy, int sw, uint32_t used, uint32_t cap){
   String s;
   s = fmtMBPrec(used,2) + " / " + fmtMBPrec(cap,2);
   if (tft.textWidth(s) <= sw) { tft.setCursor(sx, sy); tft.print(s); return; }
-
   s = fmtMBPrec(used,1) + " / " + fmtMBPrec(cap,1);
   if (tft.textWidth(s) <= sw) { tft.setCursor(sx, sy); tft.print(s); return; }
-
   s = fmtMBPrec(used,0) + " / " + fmtMBPrec(cap,0);
   if (tft.textWidth(s) <= sw) { tft.setCursor(sx, sy); tft.print(s); return; }
-
   { String u=fmtMBPrec(used,1); u.replace("MB",""); String t=fmtMBPrec(cap,1); s=u+"/"+t; if (tft.textWidth(s) <= sw) { tft.setCursor(sx, sy); tft.print(s); return; } }
   { String u=fmtMBInt(used); u.replace("MB",""); String t=fmtMBInt(cap); s=u+"/"+t; if (tft.textWidth(s) <= sw) { tft.setCursor(sx, sy); tft.print(s); return; } }
-
   String u=fmtMBPrec(used,1), t=fmtMBPrec(cap,1);
   tft.setCursor(sx, sy);       tft.print("Used: ");  tft.print(u);
   tft.setCursor(sx, sy + 10);  tft.print("Total: "); tft.print(t);
@@ -216,33 +164,24 @@ static void drawFittingStorageText(TFT_eSPI& tft, int sx, int sy, int sw, uint32
 static void drawStoragePanel(TFT_eSPI& tft){
   const int y = cy;
   const int h = bh - (cy - by) - 10;
-
   tft.drawRoundRect(lx, y, lw, h, 5, C_OUTLINE);
-
   tft.setTextColor(C_TEXT, TFT_BLACK);
   tft.setCursor(lx + 4, y + 2);  tft.print("Integrated");
   tft.setTextColor(C_SUB, TFT_BLACK);
   tft.setCursor(lx + 4, y + 12); tft.print("Storage");
-
   uint32_t cap = getAppCapacity(); if (!cap) cap = 3*1024*1024;
   uint32_t used = getAppUsed(); if (!used || used>cap) used = cap/2;
-
   const int sx = lx + 4, sw = lw - 8, sy = y + 24, sh = 8;
   tft.fillRoundRect(sx, sy, sw, sh, 3, C_SLIDER_TR);
   int fillw = (int)((uint64_t)sw * used / cap); if (fillw < 1) fillw = 1;
   tft.fillRoundRect(sx, sy, fillw, sh, 3, C_SLIDER_FI);
   tft.drawRoundRect(sx, sy, sw, sh, 3, C_OUTLINE);
-
   tft.setTextColor(C_SUB, TFT_BLACK);
   drawFittingStorageText(tft, sx, sy + 12, sw, used, cap);
-
   tft.setCursor(sx, sy + 26); tft.print("A: select");
   tft.setCursor(sx, sy + 36); tft.print("B/C: nav");
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Right panel list builders
-// ─────────────────────────────────────────────────────────────────────────────
 static String clipToWidth(TFT_eSPI& tft, const String& s, int maxW){
   if (tft.textWidth(s) <= maxW) return s;
   String out = s;
@@ -268,11 +207,9 @@ static void buildFolderItemsStatic(int16_t node, String* out, int& count){
 }
 
 static int listIntegrated(String basePath, String* out, int maxItems){
-  basePath.replace("//","/");
   if (!basePath.startsWith("/integrated")) basePath="/integrated";
   if (!SPIFFS.begin(false)) {  }
   SPIFFS.mkdir(basePath); 
-
   int n=0;
   fs::File root = SPIFFS.open(basePath);
   if (!root || !root.isDirectory()) return 0;
@@ -297,7 +234,6 @@ static void drawMessageBar(TFT_eSPI& tft, int panelY, int panelH){
   const int x  = rx + 4;
   const int w  = rw - 8;
   const int y  = panelY + panelH - bh - 3;
-
   tft.fillRoundRect(x, y, w, bh, 3, C_WARN_BG);
   tft.drawRoundRect(x, y, w, bh, 3, C_OUTLINE);
   tft.setTextColor(C_WARN_TXT, C_WARN_BG);
@@ -309,49 +245,37 @@ static void drawMessageBar(TFT_eSPI& tft, int panelY, int panelH){
 static void drawDirectoryPanel(TFT_eSPI& tft){
   const int y = cy;
   const int h = bh - (cy - by) - 10;
-
   tft.drawRoundRect(rx, y, rw, h, 5, C_OUTLINE);
-
   tft.fillRect(rx+1, y+1, rw-2, h-2, TFT_BLACK);
-
   tft.setTextColor(C_TEXT, TFT_BLACK);
   tft.setCursor(rx + 4, y + 2);
   if (!sDynMode)
     tft.print(sMode == Mode::ROOT ? "Integrated Files" : "Infiltra Main");
   else
     tft.print("Infiltra Main / integrated");
-
   const int listX = rx + 4;
   const int listY = y + 14;
   const int listW = rw - 8;
   const int rowH  = 12;
-
   const int available = h - (listY - y);
   const int vis   = max(3, available / rowH);
-
   String items[40]; int count=0;
-
   if (sMode == Mode::ROOT){
     buildRootItems(items, count);
   } else if (!sDynMode) {
-    // static node view + dynamic append at root
     buildFolderItemsStatic(sCur, items, count);
     if (sCur == N_ROOT){
-      // append a divider + dynamic folders under /integrated
       items[count++] = "— integrated —";
       int added = listIntegrated("/integrated", items+count, 40-count);
       count += added;
     }
   } else {
-    // dynamic FS browsing
     items[count++] = "<- Back";
     int added = listIntegrated(sDynPath, items+count, 40-count);
     count += added;
   }
-
   if (sSel < sPageStart) sPageStart = sSel;
   if (sSel >= sPageStart + vis) sPageStart = sSel - vis + 1;
-
   for (int i=0;i<vis;i++){
     const int idx = sPageStart + i;
     const int ry  = listY + i*rowH;
@@ -359,20 +283,15 @@ static void drawDirectoryPanel(TFT_eSPI& tft){
     int bottom = y + h - 1;
     if (ry + rh > bottom) rh = bottom - ry;
     if (rh <= 0) break;
-
     tft.fillRect(listX, ry, listW, rh, C_ROW);
-
     if (idx >= count) continue;
-
     bool sel = (idx == sSel);
     String txt = items[idx];
-    if (txt == "— integrated —") { // visual divider
+    if (txt == "— integrated —") { 
       tft.drawLine(listX, ry+rh/2, listX+listW, ry+rh/2, C_SUB);
       continue;
     }
-
     txt = clipToWidth(tft, txt, listW - 6);
-
     if (sel){
       int pillH = max(3, rh - 2);
       tft.fillRoundRect(listX+1, ry+1, listW-2, pillH, 3, C_HILITE);
@@ -384,13 +303,9 @@ static void drawDirectoryPanel(TFT_eSPI& tft){
     tft.setCursor(listX + 3, ry + 1);
     tft.print(txt);
   }
-
   drawMessageBar(tft, y, h);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Public API
-// ─────────────────────────────────────────────────────────────────────────────
 void integratedFilesReset(){
   sMode = Mode::ROOT;
   sSel = 2;
@@ -417,28 +332,22 @@ void integratedFilesDrawScreen(TFT_eSPI& tft){
   bool nowActive = msgActiveNow();
   if (sMsgWasActive && !nowActive) sDirty = true;
   sMsgWasActive = nowActive;
-
   if (!sDirty && !nowActive) return;
-
   drawStoragePanel(tft);
   drawDirectoryPanel(tft);
-
   sDirty = false;
 }
 
 void integratedFilesHandleInput(bool a, bool b, bool c, bool& exitReq){
   exitReq = false;
-
-  // B/C scroll
   if (b) { sSel++; sDirty = true; }
   if (c) { sSel--; sDirty = true; }
   if (sSel < 0) sSel = 0;
-
   if (sMode == Mode::ROOT){
     if (sSel > 2) sSel = 0;
     if (a){
-      if (sSel == 0){ exitReq = true; return; }                 // Back to Files submenu
-      if (sSel == 1){ // "+ Add" → request Web Files
+      if (sSel == 0){ exitReq = true; return; }                 
+      if (sSel == 1){ 
         sOpenWebReq = true;
         exitReq = true;
         return;
@@ -448,10 +357,8 @@ void integratedFilesHandleInput(bool a, bool b, bool c, bool& exitReq){
     return;
   }
 
-  // BROWSE
   if (!sDynMode){
     const IFNode& cur = NODES[sCur];
-    // count static + divider + dynamic
     String tmp[40]; int count=0; buildFolderItemsStatic(sCur,tmp,count);
     bool atRoot = (sCur==N_ROOT);
     int dividerIndex = -1; int dynStart=-1; int dynCount=0;
@@ -462,19 +369,15 @@ void integratedFilesHandleInput(bool a, bool b, bool c, bool& exitReq){
       dynCount = listIntegrated("/integrated", tmp+count, 40-count);
       count += dynCount;
     }
-
     if (sSel > count-1) sSel = 0;
-
     if (a){
       if (sSel == 0){
         sMode=Mode::ROOT; sSel=2; sPageStart=0; sDirty=true; return;
       }
       if (atRoot && sSel==dividerIndex){
-        // divider: ignore
         return;
       }
       if (atRoot && dynStart>=0 && sSel>=dynStart){
-        // enter dynamic FS folder/file
         String name = tmp[sSel];
         if (name.endsWith("/")){
           sDynMode=true;
@@ -486,12 +389,10 @@ void integratedFilesHandleInput(bool a, bool b, bool c, bool& exitReq){
         return;
       }
 
-      // static
       int childIdx = sSel - 1;
       if (childIdx < 0 || childIdx >= cur.kidCount) return;
       int16_t next = cur.kids[childIdx];
       const IFNode& ch = NODES[next];
-
       if (ch.isDir){
         if (sDepth < (int)(sizeof(sStack)/sizeof(sStack[0]))) sStack[sDepth++] = sCur;
         sCur = next;
@@ -503,21 +404,18 @@ void integratedFilesHandleInput(bool a, bool b, bool c, bool& exitReq){
     return;
   }
 
-  // Dynamic FS browsing
-  // Build current list to know bounds
   String curr[40]; int count=0;
   curr[count++] = "<- Back";
   int dynCount = listIntegrated(sDynPath, curr+count, 40-count);
   count += dynCount;
   if (sSel > count-1) sSel = 0;
-
   if (a){
     if (sSel == 0){
-      // go up
       if (sDynPath == "/integrated" || sDynPath == "/integrated/"){
         sDynMode=false; sSel=1; sPageStart=0; sDirty=true;
       } else {
-        String up=sDynPath; up.replace("//","/"); if (up.endsWith("/")) up.remove(up.length()-1);
+        String up=sDynPath;
+        up.replace("//", "/");
         int slash = up.lastIndexOf('/'); if (slash>0) up.remove(slash);
         if (up.length()==0) up="/integrated";
         sDynPath=up; sSel=1; sPageStart=0; sDirty=true;
