@@ -1,5 +1,5 @@
 #include "ir_read.h"
-#include "../../UserInterface/menus/menu_submenus.h"
+#include "UserInterface/menus/menu_submenus.h"
 #include <Arduino.h>
 #include <TFT_eSPI.h>
 

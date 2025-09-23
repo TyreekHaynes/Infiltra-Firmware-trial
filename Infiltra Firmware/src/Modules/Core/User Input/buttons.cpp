@@ -18,19 +18,20 @@
 #include "././UserInterface/menus/menu_submenus.h"
 #include "././UserInterface/menus/submenu_options.h"
 #include "././UserInterface/menus/menu_enums.h"
-#include "././Modules/Functions/brightness.h"
-#include "././Modules/Functions/stopwatch.h"
-#include "././Modules/Functions/bgone.h"
-#include "././Modules/Functions/ir_read.h"
-#include "././Modules/Functions/wifi_scan.h"
-#include "././Modules/Functions/packet_scan.h"
-#include "././Modules/Functions/integrated_files.h"
-#include "././Modules/Functions/rpi_connect_info.h"
-#include "././Modules/Functions/web_files.h"
-#include "././Modules/Functions/ble_scan.h"
-#include "././Modules/Functions/ble_google_adv.h"
-#include "././Modules/Core/Passlock.h"
-#include "././Modules/Functions/InfiChat.h"
+#include "././Modules/Functions/Settings/brightness.h"
+#include "././Modules/Functions/Extras/stopwatch.h"
+#include "././Modules/Functions/Ir/bgone.h"
+#include "././Modules/Functions/Ir/ir_read.h"
+#include "././Modules/Functions/Wifi/wifi_scan.h"
+#include "././Modules/Functions/Wifi/packet_scan.h"
+#include "././Modules/Functions/Files/integrated_files.h"
+#include "././Modules/Functions/RpiConnect/rpi_connect_info.h"
+#include "././Modules/Functions/Files/web_files.h"
+#include "././Modules/Functions/Bluetooth/ble_scan.h"
+#include "././Modules/Functions/Bluetooth/ble_google_adv.h"
+#include "././Modules/Core/User Config/Passlock.h"
+#include "././Modules/Functions/Extras/InfiChat.h"
+#include <SPIFFS.h>
 
 #ifndef BTN_A_PIN
 #define BTN_A_PIN 37
@@ -57,13 +58,16 @@
 #endif
 
 static bool sAEdge=false, sBEdge=false, sCEdge=false, sExitEdge=false;
-static bool sInBLEScan      = false;
-static bool sInBLEGoogleAdv = false;
-static bool sInBrightness   = false;
-static bool sInIntegrated   = false;
-static bool sInRpiInfo      = false;
-static bool sInWebFiles     = false;
-static bool sInInfiChat = false;
+static bool sInBLEScan=false;
+static bool sInBLEGoogleAdv=false;
+static bool sInBrightness=false;
+static bool sInIntegrated=false;
+static bool sInRpiInfo=false;
+static bool sInWebFiles=false;
+static bool sInInfiChat=false;
+static bool sInCustomIr=false;
+static bool sSpiffsBegun=false;
+static TFT_eSPI* sTft=nullptr;
 
 void initButtons() {
 #if defined(M5CARDPUTER)
@@ -76,6 +80,7 @@ void initButtons() {
 #else
   if (BTN_C_PIN >= 0) pinMode(BTN_C_PIN, INPUT_PULLUP);
 #endif
+  if(!sSpiffsBegun){ SPIFFS.begin(true); sSpiffsBegun=true; }
 }
 
 void updateButtons() {
@@ -122,7 +127,6 @@ void updateButtons() {
   lastA = a; lastB = b; lastC = c;
   sExitEdge = false;
 #else
-  
   M5.update();
   sAEdge = M5.BtnA.wasPressed();
   sBEdge = M5.BtnB.wasPressed();
@@ -197,16 +201,19 @@ static bool labelIsPasslock(const String& label){
   String n = norm(label);
   return (n.indexOf("passlock")>=0 || n.indexOf("passkey")>=0 || n.indexOf("password")>=0);
 }
-
 static bool labelIsInfiChat(const String& label){
   String n = norm(label);
   if (n.indexOf("infichat")>=0) return true;
   if (n.indexOf("chat")>=0)     return true;
   return false;
 }
+static bool labelIsCustomIr(const String& label){
+  String n = norm(label);
+  if(n.indexOf("custom")>=0 && (n.indexOf("ir")>=0||n.indexOf("remote")>=0)) return true;
+  return false;
+}
 
 static void openInfiChatFromHere(TFT_eSPI* tft) {
-  
   tft->fillScreen(TFT_BLACK);
 #if defined(M5CARDPUTER)
   drawOptionsLayerBackground(*tft);
@@ -227,7 +234,6 @@ static void handleSubmenuAction(
   bool& inWiFiScan,
   bool& inPacketScan
 ) {
-  
   if (idx > 0) {
     String label = getSubmenuOptionText();
     if (labelIsInfiChat(label)) {
@@ -296,7 +302,6 @@ static void handleSubmenuAction(
 
   if (currentMenu == FILES_SUBMENU && idx > 0) {
     String label = getSubmenuOptionText();
-
     if (labelIsIntegrated(label) || idx == 2) {
       tft->fillScreen(TFT_BLACK);
       tft->setRotation(ROT_TOP);
@@ -359,7 +364,6 @@ void handleAllButtonLogic(
 #if defined(M5CARDPUTER)
       drawOptionsLayerBackground(*tft);
 #endif
-      
       drawExtrasSubmenu();
       delay(20);
       return;
@@ -442,7 +446,6 @@ void handleAllButtonLogic(
     bool exitReq = false;
     integratedFilesHandleInput(btnAPressed(), btnBPressed(), btnCPressed(), exitReq);
     if (exitReq) {
-
       extern bool integratedFilesConsumeOpenWebRequest();
       if (integratedFilesConsumeOpenWebRequest()) {
         sInIntegrated = false;
@@ -457,7 +460,6 @@ void handleAllButtonLogic(
         delay(20);
         return;
       }
-
       sInIntegrated = false;
       tft->fillScreen(TFT_BLACK);
       tft->setRotation(ROT_TOP);
@@ -536,7 +538,6 @@ void handleAllButtonLogic(
       delay(20);
       return;
     }
-
     drawStopwatchTimeOnly(*tft);
     delay(20);
     return;
@@ -664,7 +665,7 @@ void handleAllButtonLogic(
 
   if (!inOptionScreen && !inStopwatch && !inIRRead && !inBGone &&
       !inWiFiScan && !inPacketScan && !sInBLEScan && !sInBLEGoogleAdv &&
-      !sInBrightness && !sInIntegrated && !sInRpiInfo && !sInWebFiles && !sInInfiChat) {
+      !sInBrightness && !sInIntegrated && !sInRpiInfo && !sInWebFiles && !sInInfiChat && !sInCustomIr) {
     switch(currentMenu) {
       case WIFI_SUBMENU: case BLUETOOTH_SUBMENU: case IR_SUBMENU:
       case RF_SUBMENU: case NRF_SUBMENU: case RADIO_SUBMENU:
@@ -707,7 +708,7 @@ void handleAllButtonLogic(
   static unsigned long last = 0;
   if (!inOptionScreen && !inStopwatch && !inIRRead && !inBGone &&
       !inWiFiScan && !inPacketScan && !sInBLEScan && !sInBLEGoogleAdv &&
-      !sInBrightness && !sInIntegrated && !sInRpiInfo && !sInWebFiles && !sInInfiChat) {
+      !sInBrightness && !sInIntegrated && !sInRpiInfo && !sInWebFiles && !sInInfiChat && !sInCustomIr) {
     if (now - last > 80) {
       if (btnBPressed()) {
         last = now;
@@ -754,7 +755,7 @@ void handleAllButtonLogic(
 
   if (!inOptionScreen && !inStopwatch && !inIRRead && !inBGone &&
       !inWiFiScan && !inPacketScan && !sInBLEScan && !sInBLEGoogleAdv &&
-      !sInBrightness && !sInIntegrated && !sInRpiInfo && !sInWebFiles && !sInInfiChat && btnAPressed()) {
+      !sInBrightness && !sInIntegrated && !sInRpiInfo && !sInWebFiles && !sInInfiChat && !sInCustomIr && btnAPressed()) {
     tft->fillScreen(TFT_BLACK);
     tft->setRotation(ROT_TOP);
 #if defined(M5CARDPUTER)

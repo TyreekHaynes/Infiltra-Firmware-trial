@@ -1,5 +1,5 @@
 #include "stopwatch.h"
-#include "../../UserInterface/menus/menu_submenus.h"
+#include "UserInterface/menus/menu_submenus.h"
 
 #if defined(M5CARDPUTER)
   static constexpr uint8_t ROT_TOP = 4; 

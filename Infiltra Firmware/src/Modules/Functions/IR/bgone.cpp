@@ -1,5 +1,5 @@
 #include "bgone.h"
-#include "../../UserInterface/menus/menu_submenus.h"
+#include "UserInterface/menus/menu_submenus.h"
 #include <Arduino.h>
 #include <math.h> 
 #include "tvbg_sender.h"

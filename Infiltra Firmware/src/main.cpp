@@ -5,9 +5,9 @@
 #include "UserInterface/bitmaps/menu_bitmaps.h"
 #include "UserInterface/menus/menu_submenus.h"
 #include "UserInterface/menus/submenu_options.h"
-#include "Modules/Core/buttons.h"
-#include "Modules/Functions/stopwatch.h"
-#include "Modules/Core/Passlock.h"
+#include "Modules/Core/User Input/buttons.h"
+#include "Modules/Functions/Extras/stopwatch.h"
+#include "Modules/Core/User config/Passlock.h"
 
 #if defined(M5CARDPUTER)
 #include <M5Cardputer.h>

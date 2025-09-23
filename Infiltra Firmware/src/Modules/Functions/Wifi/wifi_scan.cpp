@@ -1,5 +1,5 @@
 #include "wifi_scan.h"
-#include "../../UserInterface/menus/menu_submenus.h"
+#include "UserInterface/menus/menu_submenus.h"
 #include <WiFi.h>
 #include <math.h>
 

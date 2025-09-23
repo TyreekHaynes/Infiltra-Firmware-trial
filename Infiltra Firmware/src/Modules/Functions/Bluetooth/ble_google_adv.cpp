@@ -1,5 +1,5 @@
 #include "ble_google_adv.h"
-#include "../../UserInterface/menus/menu_submenus.h"
+#include "UserInterface/menus/menu_submenus.h"
 #if defined(CONFIG_BT_NIMBLE_ENABLED)
   #include <NimBLEDevice.h>
   using AdvDataT      = NimBLEAdvertisementData;
