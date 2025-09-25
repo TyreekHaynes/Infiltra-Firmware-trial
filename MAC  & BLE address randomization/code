@@ -1,0 +1,240 @@
+// Mac rotation configuration
+#include <ethernetConfig.h>
+#include <ethernetConfig.h>
+#include <BLEDevice.h>
+bool enableMACRotation = true; // Enable or disable MAC address rotation
+unsigned long macRotationInterval = 360000; // Interval for MAC rotation in milliseconds
+unsigned long lastMACChange = 0;
+int currentVendorIndex = 0;
+bool enableBLERandomization = true;
+unsigned long lastBLERotation = 0;
+bool bleAdvertising = false;
+
+// BLE pointers (need to be declared)
+BLEServer* pServer = nullptr;
+BLEAdvertising* pAdvertising = nullptr;
+
+// Vendor OUIs for MAC spoofing 
+const uint8_t vendorOUIs[][3] = {
+    {0x44, 0x65, 0x54}, {0x3C, 0x5A, 0x37}, {0x00, 0x1A, 0x11}, {0x00, 0x1B, 0x63},
+    {0xF4, 0x5C, 0x89}, {0xDC, 0xA6, 0x32}, {0xAC, 0xBC, 0x32}, {0x50, 0xC7, 0xBF}
+};
+
+// Vendor hostnames (need to be declared)
+const char* vendorHostnames[][2] = {
+    {"Device01", "service01"},
+    {"Device02", "service02"},
+    {"Device03", "service03"},
+    {"Device04", "service04"},
+    {"Device05", "service05"},
+    {"Device06", "service06"}
+};
+
+String currentHostname;
+String currentmDNSService;
+
+// Forward declarations
+void setVendorProfile(int vendorIndex);
+void generateFakeDeviceMAC(uint8_t* mac);
+void initializeBLE();
+void randomizeBLE();
+String generateBLEDeviceName();
+void setupBLEServices();
+String generateRandomUUID();
+void addFakeCharacteristics(BLEService* pService);
+void startBLEAdvertising();
+void stopBLEAdvertising();
+void checkBLESafety();
+
+// Main MAC rotation function 
+void changeMACaddress() { 
+    int vendorIndex = random(0, sizeof(vendorOUIs) / sizeof(vendorOUIs[0]));
+    setVendorProfile(vendorIndex);
+}
+
+// Vendor profile setting with MAC spoofing
+void setVendorProfile(int vendorIndex) {
+    if (vendorIndex >= 0 && vendorIndex < (sizeof(vendorOUIs) / sizeof(vendorOUIs[0]))) {
+        currentVendorIndex = vendorIndex;
+        currentHostname = String(vendorHostnames[vendorIndex][0]);
+        currentmDNSService = String(vendorHostnames[vendorIndex][1]);
+        
+        // Update MAC address to match vendor
+        uint8_t newMAC[6];
+        generateFakeDeviceMAC(newMAC);
+        esp_wifi_set_mac(WIFI_IF_STA, newMAC);
+
+        // Update hostname
+        WiFi.setHostname(currentHostname.c_str());
+
+        Serial.printf("Set vendor profile %s, MAC: ", currentHostname.c_str());
+        for (int i = 0; i < 6; i++) {
+            Serial.printf("%02X", newMAC[i]);
+            if (i < 5) Serial.print(":");
+        }
+        Serial.println();
+    }
+}
+
+// MAC address generation
+void generateFakeDeviceMAC(uint8_t* mac) {
+    // Use current vendor index for consistent vendor OUI
+    memcpy(mac, vendorOUIs[currentVendorIndex], 3);
+    for (int i = 3; i < 6; i++) {
+        mac[i] = random(0, 256);
+    }    
+}
+
+// MAC rotation in main loop
+void rotateMAC() {
+    // Only rotate MAC if not connected to Wifi to avoid disruption
+    if (WiFi.status() != WL_CONNECTED && millis() - lastMACChange > random(3600000, 7200000)) {
+        setVendorProfile(random(0, 6)); // Assuming 6 vendor profiles
+        lastMACChange = millis();
+    }
+}
+
+// BLE Randomization Functions
+void initializeBLE() {
+    if (!BLE.begin()) {
+        Serial.println("Failed to initialize BLE");
+        return;
+    }
+    
+    BLEDevice::init(generateBLEDeviceName().c_str());
+    startBLEAdvertising();
+    bleAdvertising = true;
+    Serial.println("BLE initialized and advertising");
+}
+
+void randomizeBLE() {
+    if (!enableBLERandomization) return;
+    
+    Serial.println("Rotating BLE identity...");
+    
+    // Stop current advertising
+    if (pAdvertising && bleAdvertising) {
+        pAdvertising->stop();
+        delay(100);
+    }
+    
+    // Generate new BLE device name
+    String newName = generateBLEDeviceName();
+    BLEDevice::deinit();
+    delay(500);
+    BLEDevice::init(newName.c_str());
+    
+    // Configure new BLE services and characteristics
+    setupBLEServices();
+    
+    // Restart advertising with new identity
+    startBLEAdvertising();
+    
+    Serial.printf("BLE identity rotated to: %s\n", newName.c_str());
+    lastBLERotation = millis();
+}
+
+String generateBLEDeviceName() {
+    // Combine vendor name with random suffix
+    const char* vendors[] = {"Amazon", "Google", "Apple", "Samsung", "Xiaomi", "Fitbit", "Tile", "Philips"};
+    int vendorIndex = random(0, sizeof(vendors) / sizeof(vendors[0]));
+    
+    String deviceName = String(vendors[vendorIndex]);
+    deviceName += "_";
+    deviceName += String(random(1000, 9999)); // Random 4-digit number
+    deviceName += String((char)random(65, 91)); // Random capital letter
+    
+    return deviceName;
+}
+
+void setupBLEServices() {
+    // Create BLE server
+    pServer = BLEDevice::createServer();
+    
+    // Create service with random UUID
+    String serviceUUID = generateRandomUUID();
+    BLEService* pService = pServer->createService(serviceUUID.c_str());
+    
+    // Add characteristics with fake data
+    addFakeCharacteristics(pService);
+    
+    // Start the service
+    pService->start();
+}
+
+String generateRandomUUID() {
+    // Generate a random UUID in the format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+    String uuid = "";
+    const char* hexChars = "0123456789abcdef";
+    
+    for (int i = 0; i < 36; i++) {
+        if (i == 8 || i == 13 || i == 18 || i == 23) {
+            uuid += "-";
+        } else {
+            uuid += String(hexChars[random(0, 16)]);
+        }
+    }
+    
+    return uuid;
+}
+
+void addFakeCharacteristics(BLEService* pService) {
+    // Add fake device information characteristic
+    BLECharacteristic* pCharModel = pService->createCharacteristic(
+        "00002a24-0000-1000-8000-00805f9b34fb", // Model Number String
+        BLECharacteristic::PROPERTY_READ
+    );
+    
+    const char* models[] = {"ABC123", "XYZ789", "MODEL_A1", "DEVICE_B2", "PROD_C3"};
+    pCharModel->setValue(models[random(0, sizeof(models) / sizeof(models[0]))]);
+    
+    // Add fake battery level characteristic
+    BLECharacteristic* pCharBattery = pService->createCharacteristic(
+        "00002a19-0000-1000-8000-00805f9b34fb", // Battery Level
+        BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
+    );
+    
+    uint8_t batteryLevel = random(20, 101); // 20-100%
+    pCharBattery->setValue(&batteryLevel, 1);
+    
+    // Add fake manufacturer name
+    BLECharacteristic* pCharManufacturer = pService->createCharacteristic(
+        "00002a29-0000-1000-8000-00805f9b34fb", // Manufacturer Name
+        BLECharacteristic::PROPERTY_READ
+    );
+    
+    const char* manufacturers[] = {"Amazon", "Google LLC", "Apple Inc.", "Samsung", "Xiaomi"};
+    pCharManufacturer->setValue(manufacturers[random(0, sizeof(manufacturers) / sizeof(manufacturers[0]))]);
+}
+
+void startBLEAdvertising() {
+    pAdvertising = BLEDevice::getAdvertising();
+    
+    // Configure advertising parameters
+    pAdvertising->setMinPreferred(0x06);  // Functions that help with iPhone connections
+    pAdvertising->setMaxPreferred(0x12);
+    
+    // Set advertising interval with random jitter
+    pAdvertising->setMinInterval(32);   // 20ms
+    pAdvertising->setMaxInterval(320);  // 200ms
+    
+    // Start advertising
+    pAdvertising->start();
+    bleAdvertising = true;
+    
+    Serial.println("BLE advertising started");
+}
+
+void stopBLEAdvertising() {
+    if (pAdvertising && bleAdvertising) {
+        pAdvertising->stop();
+        bleAdvertising = false;
+        Serial.println("BLE advertising stopped");
+    }
+}
+
+// BLE Safety check (similar to MAC safety)
+void checkBLESafety() {
+    // Implement BLE-specific safety checks if needed
+    Serial.println("Performing BLE safety check...");
+}
